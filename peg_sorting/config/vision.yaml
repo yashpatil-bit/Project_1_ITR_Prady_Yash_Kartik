@@ -20,6 +20,8 @@ workspace:
 table_z: 0.0            # height of the surface the pegs stand on, in the base frame
 
 pegs:
+  nominal_height: 0.10  # used when a peg's top has no depth reading (measure your pegs!)
+  max_width: 0.09       # outlines wider than this are rejected
   min_height: 0.03      # blob pixels must be at least this high above the table
   max_height: 0.20
   top_band: 0.012       # points within this of the highest point = top face

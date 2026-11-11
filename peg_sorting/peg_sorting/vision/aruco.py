@@ -87,30 +87,53 @@ def fit_plane(points, iterations=300, inlier_m=0.003, seed=0):
     return n, d
 
 
-def marker_pose_on_plane(corners, depth, K, radius_px=80):
-    """Accurate T_cam_marker for a marker lying on a flat surface: the surface plane is
-    fitted to the depth around the marker and the corner rays are intersected with it.
+def marker_pose_on_plane(corners, depth, K, radius_px=None):
+    """Accurate T_cam_marker for a marker lying on a flat surface.
+
+    * the surface ORIENTATION comes from a RANSAC plane fitted to the depth of the
+      whole visible table (a small patch is not enough: shiny metal gives no depth),
+    * the surface HEIGHT comes from the depth right around the marker (paper gives
+      good depth), so the plane passes through the marker even if the board / plate
+      / table are at slightly different heights,
+    * the four corner rays are intersected with that plane.
     Returns T or None."""
     from .geometry import deproject
-    c = corners.mean(axis=0)
+    P = deproject(depth, K)
     h, w = depth.shape
-    x0, x1 = int(max(0, c[0] - radius_px)), int(min(w, c[0] + radius_px))
-    y0, y1 = int(max(0, c[1] - radius_px)), int(min(h, c[1] + radius_px))
-    pts = deproject(depth[y0:y1, x0:x1], np.array([[K[0, 0], 0, K[0, 2] - x0], [0, K[1, 1], K[1, 2] - y0],
-                                                   [0, 0, 1]]))
-    plane = fit_plane(pts.reshape(-1, 3))
+    c = corners.mean(axis=0)
+    side = float(np.mean(np.linalg.norm(np.roll(corners, -1, axis=0) - corners, axis=1)))
+    # 1) dominant plane over a large region around the marker (or the whole image)
+    r = radius_px or max(h, w)
+    vv, uu = np.mgrid[0:h, 0:w]
+    near = (uu - c[0]) ** 2 + (vv - c[1]) ** 2 < r * r
+    pts = P[near & (depth > 0)]
+    if len(pts) > 40000:
+        pts = pts[np.random.default_rng(0).choice(len(pts), 40000, replace=False)]
+    plane = fit_plane(pts, iterations=400, inlier_m=0.004)
     if plane is None:
         return None
     n, d = plane
+    # 2) height: depth of the marker paper itself (quad grown by 20 %)
+    quad = ((corners - c) * 1.2 + c).astype(np.int32)
+    mask = np.zeros((h, w), np.uint8)
+    cv2.fillConvexPoly(mask, quad, 1)
+    mp = P[(mask > 0) & (depth > 0)]
+    if len(mp) < 30:  # paper without depth: use a ring around it instead
+        ring = np.zeros((h, w), np.uint8)
+        cv2.circle(ring, tuple(int(v) for v in c), int(2.0 * side), 1, -1)
+        mp = P[(ring > 0) & (mask == 0) & (depth > 0)]
+    if len(mp) >= 30:
+        d_local = -float(np.median(mp @ n))
+        if abs(d_local - d) < 0.03:   # sanity: the marker is on (or near) the dominant plane
+            d = d_local
     rays = np.column_stack([(corners[:, 0] - K[0, 2]) / K[0, 0], (corners[:, 1] - K[1, 2]) / K[1, 1],
                             np.ones(4)])
     t = -d / (rays @ n)
-    P = rays * t[:, None]          # 3-D corners: TL, TR, BR, BL (marker frame: x right, y up)
-    origin = P.mean(axis=0)
-    x = (P[1] - P[0]) + (P[2] - P[3])
+    Pc = rays * t[:, None]          # 3-D corners: TL, TR, BR, BL (marker frame: x right, y up)
+    origin = Pc.mean(axis=0)
+    x = (Pc[1] - Pc[0]) + (Pc[2] - Pc[3])
     z = n                           # marker z: out of the surface, towards the camera side
     x = x - (x @ z) * z
     x /= np.linalg.norm(x)
     y = np.cross(z, x)
-    T = make_T(np.column_stack([x, y, z]), origin)
-    return T
+    return make_T(np.column_stack([x, y, z]), origin)

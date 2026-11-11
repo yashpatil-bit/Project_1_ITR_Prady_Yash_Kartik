@@ -6,4 +6,5 @@ log/
 *.egg-info/
 .pytest_cache/
 *.pt
+!peg_sorting/test/data/*.npz
 runs/

@@ -23,7 +23,8 @@ class SceneDetector:
     def detect(self, frame, with_sockets=True):
         pts = points_in_base(frame.depth, frame.K, self.T)
         hsv = to_hsv(frame.color, int(self.vcfg['pegs'].get('blur_px', 3)))
-        pegs = detect_pegs(hsv, pts, self.colors, self.vcfg, self.table_z, self.yolo, frame.color)
+        pegs = detect_pegs(hsv, pts, self.colors, self.vcfg, self.table_z, self.yolo, frame.color,
+                           frame.K, self.T)
         board, sockets, dbg = BoardDetection(False), [], {}
         if with_sockets:
             board, sockets, dbg = detect_board_and_sockets(frame.color, pts[..., 2], frame.K, self.T,
