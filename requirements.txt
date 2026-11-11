@@ -1,0 +1,7 @@
+# Python dependencies (install with: pip3 install -r requirements.txt)
+# numpy < 2 keeps ROS 2 Humble's own Python packages (built against numpy 1.21) working.
+numpy>=1.21,<2
+opencv-contrib-python==4.10.0.84
+pyrealsense2>=2.54
+pyyaml>=5.4
+dynamixel-sdk>=3.7.31

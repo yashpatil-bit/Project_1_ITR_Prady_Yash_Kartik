@@ -1,0 +1,26 @@
+# Camera -> robot base extrinsic calibration.
+# Written by:  ros2 run peg_sorting calibrate_aruco      (quick, uses the ArUco marker)
+#         or:  ros2 run peg_sorting calibrate_handeye    (more accurate, touch points)
+# The values below are a PLACEHOLDER (the simulated camera pose) until you calibrate.
+calibrated: false
+method: placeholder
+T_base_cam:
+  translation_m: [0.3, 0.45, 0.5]
+  rpy_rad: [-2.3917, 0.0, 2.881]
+  matrix: null
+# Fine correction added to every detected position (m), see docs/calibration.md
+xyz_correction_m: [0.0, 0.0, 0.0]
+
+aruco:
+  dictionary: auto      # auto = try the common dictionaries, or e.g. DICT_4X4_50
+  marker_id: -1         # -1 = use the first marker found
+  marker_length_m: 0.04 # MEASURE the black square's side length and enter it here
+  # Pose of the marker CENTRE in the robot base frame (origin on the table under
+  # joint 1, x forward, y left).  MEASURE these with a ruler.  yaw = angle of
+  # the marker's x-axis (its "right" edge direction when the marker is read
+  # upright) from the robot's x axis, counter-clockwise.
+  marker_in_base:
+    x: 0.10
+    y: 0.25
+    z: 0.0
+    yaw_deg: 0.0

@@ -1,0 +1,56 @@
+# OpenMANIPULATOR-X (Manipulator X) hardware + kinematics.
+dynamixel:
+  port: /dev/ttyUSB0
+  baudrate: 1000000
+  protocol: 2.0
+  joint_ids: [11, 12, 13, 14]
+  gripper_id: 15
+  joint_names: [joint1, joint2, joint3, joint4]
+  # tick = 2048 + sign * (angle + offset) * 4096 / (2*pi)
+  joint_signs: [1, 1, 1, 1]
+  joint_offsets_rad: [0.0, 0.0, 0.0, 0.0]
+  control_rate_hz: 100
+  state_rate_hz: 50
+
+gripper:
+  # Dynamixel ticks of the gripper motor.  CALIBRATE: run teleop, open/close the
+  # gripper by hand with torque off and read the ticks (see docs/calibration.md).
+  open_ticks: 2480
+  closed_ticks: 1620
+  release_fraction: 0.6   # how far to open (0..1) when releasing a peg into a socket
+  current_limit: 300      # goal current in units of 2.69 mA (~0.8 A) -> grip force
+  profile_velocity: 0     # 0 = maximum speed
+  move_timeout: 1.5       # s
+  grasp_detect_fraction: 0.08  # stopped more than this fraction before closed -> holding a peg
+
+kinematics:
+  d1: 0.0765          # table/base -> joint2 height (ROBOTIS: 0.017 + 0.0595)
+  base_z_offset: 0.0  # +: robot base sits higher than the surface the pegs stand on
+  l1_forward: 0.024
+  l1_up: 0.128
+  l2: 0.124
+  tool_length: 0.126  # joint4 axis -> grasp point between the fingertips. MEASURE for custom fingers!
+
+joint_limits_rad:
+  lower: [-2.827, -1.791, -0.942, -1.791]
+  upper: [2.827, 1.571, 1.382, 2.042]
+
+poses:
+  # joint angles (rad).  Set observe with teleop (key 'P' saves the current pose).
+  home: [0.0, -1.05, 0.35, 0.70]
+  observe: [0.0, -1.30, 0.30, 1.20]
+  sleep: [0.0, -1.70, 1.25, 0.60]
+
+limits:
+  joint_vel: 1.5       # rad/s
+  joint_acc: 4.0       # rad/s^2
+  cart_vel: 0.20       # m/s
+  cart_vel_slow: 0.04  # m/s  (insertion)
+  cart_acc: 0.8        # m/s^2
+  dt: 0.02
+  min_duration: 0.15
+
+driver:
+  goal_tolerance_rad: 0.04
+  goal_time_tolerance_s: 1.0
+  path_tolerance_rad: 0.20     # guarded moves abort if the tracking error exceeds this
