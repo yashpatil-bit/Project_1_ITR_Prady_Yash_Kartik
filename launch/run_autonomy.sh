@@ -26,7 +26,13 @@ if ! ros2 pkg prefix peg_sorting >/dev/null 2>&1; then
 fi
 ros2 launch peg_sorting bringup.launch.py mock:=$MOCK show_window:=$SHOW sim_scene:=$SCENE &
 BRINGUP=$!
-cleanup() { kill -INT $BRINGUP 2>/dev/null || true; wait $BRINGUP 2>/dev/null || true; }
-trap cleanup EXIT
+# (background jobs of a script ignore SIGINT, so stop the launch with SIGTERM)
+cleanup() {
+  kill -TERM $BRINGUP 2>/dev/null || true
+  for _ in $(seq 1 20); do kill -0 $BRINGUP 2>/dev/null || break; sleep 0.5; done
+  kill -KILL $BRINGUP 2>/dev/null || true
+  pkill -f "peg_sorting/lib/peg_sorting/(driver|vision)" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
 sleep 4
 ros2 run peg_sorting task_manager --ros-args -p confirm:=$CONFIRM -p speed_scale:=$SPEED

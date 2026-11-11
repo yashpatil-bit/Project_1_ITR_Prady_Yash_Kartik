@@ -172,9 +172,10 @@ cd ~/peg_ws/src/Project_1_ITR_Prady_Yash_Kartik
 ./launch/run_teleop.sh --mock                                     # practise teleop
 ```
 
-With the board as in the lab photo, the planner warns that the square and hexagon will arrive
-13–17° rotated. In the simulation they then rest on the board and the run reports 2/4. With the
-board moved as suggested, all 4 go in. Section 8 explains why.
+Results in mock mode (ROS 2 Humble): with the board as in the lab photo, the planner warns that the square and
+hexagon will arrive 13–17° rotated; they end up resting on the board and the run reports **2/4**. With the
+board where `suggest_board_pose` puts it (and the triangle turned as the scene report says): **4/4 in about 50 s,
+0 failures**. Section 8 explains why.
 
 ## 5. First bring-up on the real robot
 
