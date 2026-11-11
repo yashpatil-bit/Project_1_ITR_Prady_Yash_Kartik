@@ -84,7 +84,7 @@ def test_triangle_rotation_hint():
 
 def test_planar_fit_recovers_rotation_and_shift():
     import numpy as np
-    from peg_sorting.tools.calibrate_handeye import fit_planar
+    from peg_sorting.utils.transforms import fit_planar
     src = np.array([[0.10, 0.03], [0.05, 0.10], [0.09, -0.03], [0.09, -0.11]])
     th = math.radians(1.5)
     R = np.array([[math.cos(th), -math.sin(th)], [math.sin(th), math.cos(th)]])

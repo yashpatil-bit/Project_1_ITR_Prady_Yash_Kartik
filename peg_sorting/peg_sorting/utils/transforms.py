@@ -96,3 +96,15 @@ def T_from_dict(d):
         return np.array(d['matrix'], dtype=float)
     R = rpy_to_matrix(*d['rpy_rad'])
     return make_T(R, d['translation_m'])
+
+
+def fit_planar(src_xy, dst_xy):
+    """Rotation about z + 2-D shift with dst ~= R src + t.  Returns (theta, t, residuals)."""
+    s, d = np.asarray(src_xy, float), np.asarray(dst_xy, float)
+    cs, cd = s.mean(axis=0), d.mean(axis=0)
+    H = (s - cs).T @ (d - cd)
+    theta = math.atan2(H[0, 1] - H[1, 0], H[0, 0] + H[1, 1])
+    R = np.array([[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]])
+    t = cd - R @ cs
+    res = (s @ R.T + t) - d
+    return theta, t, res

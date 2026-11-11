@@ -28,20 +28,8 @@ from ..nodes.teleop_keyboard import Teleop
 from ..nodes.vision_node import load_extrinsics
 from ..utils.config import load_yaml, update_yaml
 from ..utils.keyboard import KeyReader
-from ..utils.transforms import T_to_dict, make_T, rot_z
+from ..utils.transforms import T_to_dict, fit_planar, make_T, rot_z
 from .check_calibration import safe_approach, safe_retreat
-
-
-def fit_planar(src_xy, dst_xy):
-    """Rotation about z + 2-D shift with dst ~= R src + t.  Returns (theta, t, residuals)."""
-    s, d = np.asarray(src_xy, float), np.asarray(dst_xy, float)
-    cs, cd = s.mean(axis=0), d.mean(axis=0)
-    H = (s - cs).T @ (d - cd)
-    theta = math.atan2(H[0, 1] - H[1, 0], H[0, 0] + H[1, 1])
-    R = np.array([[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]])
-    t = cd - R @ cs
-    res = (s @ R.T + t) - d
-    return theta, t, res
 
 
 def main(args=None):
