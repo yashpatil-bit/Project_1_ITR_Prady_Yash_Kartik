@@ -62,6 +62,11 @@ def detect_board_and_sockets(color, height_map, K, T_base_cam, color_cfg, vcfg, 
     hsv = cv2.cvtColor(cv2.GaussianBlur(bev_color, (5, 5), 0), cv2.COLOR_BGR2HSV)
     board_mask = hsv_mask(hsv, color_cfg.board)
     tall = (bev_height > board_top + float(bc['occluder_height'])).astype(np.uint8) * 255
+    # grow the tall mask a little: a peg's edges (and its shadow-side depth holes) must
+    # never count as board, otherwise a wood-coloured peg next to the board merges into it
+    grow = int(max(3, round(0.006 / bev.res))) | 1
+    tall = cv2.dilate(tall, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (grow, grow)))
+    board_mask = cv2.bitwise_and(board_mask, cv2.bitwise_not(tall))
     board_mask = clean_mask(board_mask, 3, 3)
     board_or_tall = cv2.bitwise_or(board_mask, tall)
 
