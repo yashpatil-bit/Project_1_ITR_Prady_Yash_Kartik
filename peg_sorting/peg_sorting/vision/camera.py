@@ -28,13 +28,28 @@ class RealSenseCamera:
         self.height = int(c.get('height', 480))
         self.fps = int(c.get('fps', 30))
         self.pipeline = rs.pipeline()
-        config = rs.config()
         serial = str(c.get('serial', '') or '')
-        if serial:
-            config.enable_device(serial)
-        config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, self.fps)
-        config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, self.fps)
-        profile = self.pipeline.start(config)
+        # Requested mode first; then modes that also work on a USB 2 connection.
+        modes = [(self.width, self.height, self.fps), (640, 480, 15), (640, 480, 6), (424, 240, 15)]
+        profile, errors = None, []
+        for (w, h, fps) in modes:
+            config = rs.config()
+            if serial:
+                config.enable_device(serial)
+            config.enable_stream(rs.stream.depth, w, h, rs.format.z16, fps)
+            config.enable_stream(rs.stream.color, w, h, rs.format.bgr8, fps)
+            try:
+                profile = self.pipeline.start(config)
+                self.width, self.height, self.fps = w, h, fps
+                break
+            except RuntimeError as e:
+                errors.append('%dx%d@%d: %s' % (w, h, fps, e))
+        if profile is None:
+            raise RuntimeError('RealSense could not start any stream mode:\n  ' + '\n  '.join(errors))
+        if (self.width, self.height, self.fps) != modes[0]:
+            print('WARNING: RealSense running at %dx%d@%dfps (requested %dx%d@%d). Probably a USB 2 '
+                  'connection - use a USB 3 port + cable for best depth.' % (
+                      self.width, self.height, self.fps, *modes[0]))
         dev = profile.get_device()
         depth_sensor = dev.first_depth_sensor()
         self.depth_scale = depth_sensor.get_depth_scale()
@@ -72,6 +87,12 @@ class RealSenseCamera:
         self.dist = np.array(intr.coeffs[:5], dtype=float)
         self.serial = dev.get_info(rs.camera_info.serial_number)
         self.name = dev.get_info(rs.camera_info.name)
+        try:
+            self.usb = dev.get_info(rs.camera_info.usb_type_descriptor)
+            if self.usb.startswith('2'):
+                print('WARNING: RealSense connected over USB %s - use a USB 3 port/cable.' % self.usb)
+        except Exception:  # noqa: BLE001
+            self.usb = '?'
         # let auto exposure settle
         for _ in range(int(c.get('warmup_frames', 30))):
             self.pipeline.wait_for_frames()
