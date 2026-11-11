@@ -128,6 +128,33 @@ def predicted_misalignment(peg: PegInfo, socket: SocketInfo, grasp_model='squeez
     return _ang_dist(socket.yaw, yaw_final, period)
 
 
+def peg_rotation_hint(peg: PegInfo, socket: SocketInfo, grasp_model='squeeze'):
+    """How far (rad, CCW seen from above) to turn the peg by hand BEFORE the run so
+    that it arrives aligned, or None if turning the peg cannot help (then the board
+    has to move).  With 'squeeze' this only helps when the shape has more than one
+    stable grasp orientation (the triangle: the squeeze lands in one of two
+    orientations 60 deg apart depending on how the peg starts)."""
+    n = SYMMETRY.get(socket.shape)
+    if n is None:
+        return None
+    period = 2 * math.pi / n
+    pick, place = math.atan2(peg.y, peg.x), math.atan2(socket.y, socket.x)
+    rel_now = peg.yaw - pick
+    if grasp_model == 'hold':
+        return _ang_dist(socket.yaw - place, rel_now, period)
+    best = None
+    for st in SQUEEZE_STABLE_DEG[socket.shape]:
+        st = math.radians(st)
+        err = abs(_ang_dist(socket.yaw, place + st, period))
+        if best is None or err < best[0]:
+            best = (err, st)
+    current = predicted_misalignment(peg, socket, grasp_model)
+    if best[0] >= abs(current) - 1e-6:
+        return None
+    # turn the peg so that its relative yaw sits in the middle of the target's basin
+    return _ang_dist(best[1], rel_now, period)
+
+
 class PickPlacePlanner:
     def __init__(self, kin: ManipulatorXKinematics, task_cfg: dict, limits: Limits, table_z=0.0):
         self.kin = kin

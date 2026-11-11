@@ -69,3 +69,14 @@ def test_board_placement_search_finds_aligned_pose():
     assert worst_now > 10
     cands = search(model, pl, current=(0.24, 0.0, math.radians(90)), step=0.02, yaw_step_deg=2.0, tolerance_deg=2.0)
     assert cands and cands[0][0] <= 2.0
+
+
+def test_triangle_rotation_hint():
+    from peg_sorting.planning.pick_place_planner import peg_rotation_hint
+    peg = PegInfo('yellow', 'triangle', 0.06, 0.18, 0.1, 0.1, math.radians(10), 0.058)
+    sock = SocketInfo('triangle', 0.1716, 0.1419, 0.005, math.radians(9.8))
+    assert abs(math.degrees(predicted_misalignment(peg, sock))) > 50
+    h = peg_rotation_hint(peg, sock)
+    assert h is not None
+    peg.yaw += h
+    assert abs(math.degrees(predicted_misalignment(peg, sock))) < 2

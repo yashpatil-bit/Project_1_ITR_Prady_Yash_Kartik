@@ -324,6 +324,9 @@ What the software does about it:
 * `ros2 run peg_sorting suggest_board_pose` searches for **a reachable board pose where every socket lines up**
   (for the sim board: move it 45 mm and turn it 10° → all errors < 0.5°). If you are allowed to place the board, put it
   there and fine-tune while watching the numbers in the vision window.
+* The **triangle** can settle in one of two orientations, 60° apart, depending on how the peg is standing before the
+  grasp. When the other one would line up, the scene report says **"turn this peg by N° before starting"**. Do that while
+  setting up the pegs.
 * Insertion is slow and guarded, with small offset retries, and verification detects a peg left resting on the
   board. A placement that failed because of a known yaw error is not retried.
 * `task.yaml → alignment.grasp_model`: `squeeze` (default; hard fingers turn the peg) or `hold` (soft fingers grip the

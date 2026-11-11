@@ -18,7 +18,7 @@ from control_msgs.action import FollowJointTrajectory
 
 from ..control.robot_interface import EmergencyStop, RobotInterface
 from ..planning.pick_place_planner import (PegInfo, PickPlacePlanner, PlanningError, SocketInfo,
-                                           predicted_misalignment)
+                                           peg_rotation_hint, predicted_misalignment)
 from ..utils.config import load_yaml
 from ..utils.keyboard import KeyReader
 from ..utils.run_logger import RunLogger
@@ -263,10 +263,11 @@ class TaskManager:
                 print('  !! no socket detected for the %s %s' % (p.color, p.shape))
                 continue
             mis = math.degrees(predicted_misalignment(p, s, self.planner.grasp_model))
+            hint = peg_rotation_hint(p, s, self.planner.grasp_model)
             if abs(mis) <= tol:
                 flag = 'OK'
-            elif self.planner.grasp_model == 'hold':
-                flag = 'WARNING: rotate this peg by %+.0f deg before starting' % mis
+            elif hint is not None:
+                flag = 'WARNING: turn this peg by %+.0f deg (CCW seen from above) before starting' % math.degrees(hint)
             else:
                 flag = 'WARNING: 4-DOF arm cannot fix this - move/rotate the board (suggest_board_pose)'
             print('  %-7s -> %-8s predicted yaw error %+5.1f deg  %s' % (p.color, s.shape, mis, flag))
