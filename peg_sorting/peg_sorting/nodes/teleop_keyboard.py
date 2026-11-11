@@ -21,6 +21,7 @@ HELP = r"""
    a / d  : left / right    (+y / -y)     h : home pose      b : observe pose
    r / f  : up / down       (+z / -z)     P : save current joints as the 'observe' pose
    t / g  : tool pitch steeper / flatter  (keep pitch constant while carrying a peg!)
+   T      : point the gripper straight down (pitch 90 deg)
    q / e  : rotate base left / right
    + / -  : step size            i : print joints + tool pose
   VISION ASSIST (vision node running)
@@ -178,6 +179,12 @@ class Teleop:
             print('  emergency stop released')
         elif k in moves:
             self.jog(**moves[k])
+        elif k == 'T':
+            if self.target is None:
+                self.sync_target()
+            x, y, z, _ = self.target
+            if self.go_cartesian(x, y, z, math.pi / 2, quick=False):
+                print('  gripper pointing straight down')
         elif k in ('+', '='):
             self.step_i = min(self.step_i + 1, len(STEPS) - 1)
             print('  step %.0f mm' % (STEPS[self.step_i] * 1e3))
