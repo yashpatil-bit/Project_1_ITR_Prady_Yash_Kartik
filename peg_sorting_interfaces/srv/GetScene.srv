@@ -1,0 +1,11 @@
+# Ask the vision node for the current scene (averaged over num_frames frames).
+int32 num_frames           # 0 -> use the node's default
+bool detect_sockets        # false -> skip board / socket detection (faster)
+---
+bool success
+string message
+peg_sorting_interfaces/Peg[] pegs
+peg_sorting_interfaces/Socket[] sockets
+geometry_msgs/Point board_center
+float32 board_yaw
+bool board_found

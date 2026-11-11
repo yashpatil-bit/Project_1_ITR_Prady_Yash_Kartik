@@ -1,0 +1,38 @@
+# Pick-and-place parameters (metres / seconds / degrees).
+grasp:
+  grasp_depth: 0.03          # tool point this far below the peg top when closing
+  approach_clearance: 0.05   # pre-grasp: tool point this far above the peg top
+  approach_speed: 0.12       # m/s for the final vertical approach
+  settle_time: 0.15          # wait before closing (PDF: "settle delay before close")
+
+place:
+  insertion_start_above_board: 0.012  # peg bottom this far above the board before slow insertion
+  bottom_clearance: 0.004    # stop with the peg bottom this far above the table
+  release_settle: 0.10
+  retreat_height: 0.05       # tool goes this far above the peg top after release
+
+transport:
+  clearance_above_board: 0.025  # carried peg's bottom above the board top
+  min_lift: 0.02
+  obstacle_margin: 0.015
+  r_min: 0.10
+  r_max: 0.30
+
+pitch:
+  preferred_deg: 90          # straight down
+  min_deg: 30
+
+alignment:
+  # Manipulator X has no wrist roll: the gripper yaw is always joint1.  See README "Orientation".
+  grasp_model: squeeze       # squeeze: jaws turn the peg flat-to-jaw | hold: peg does not turn in the gripper
+  tolerance_deg: 6           # warn if the predicted peg/socket yaw error is larger
+  policy: warn               # warn | skip  (skip = do not try sockets that cannot align)
+
+execution:
+  speed_scale: 1.0           # global speed multiplier (raise carefully for the speed bonus)
+  max_retries: 2
+  observe_num_frames: 5
+  verify: true
+  verify_tolerance: 0.025    # peg must end within this distance of the socket centre
+  search_offsets_m: [[0.0, 0.0], [0.004, 0.0], [-0.004, 0.0], [0.0, 0.004], [0.0, -0.004]]
+  log_dir: ~/peg_sorting_logs

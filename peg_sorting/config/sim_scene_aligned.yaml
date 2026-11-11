@@ -1,0 +1,50 @@
+# Synthetic scene used by --mock / mock:=true runs and by the tests.
+# Same as sim_scene.yaml but the board is where `suggest_board_pose --mock`
+# suggests (20 cm in front, turned 10 deg): every peg arrives aligned.  It lets you
+# run the complete software stack (vision -> planning -> control) on a laptop
+# without the robot or the camera.  Units: metres / degrees.
+camera:
+  width: 848
+  height: 480
+  fx: 615.0
+  fy: 615.0
+  eye: [0.30, 0.45, 0.50]      # camera position in the base frame
+  target: [0.18, 0.0, 0.0]     # point the camera looks at
+  depth_noise_m: 0.0015
+  color_noise: 4
+
+table:
+  plate_x: [-0.06, 0.42]
+  plate_y: [-0.30, 0.30]
+  plate_bgr: [200, 202, 205]
+  table_bgr: [70, 70, 72]
+
+board:
+  center: [0.20, -0.02]
+  yaw_deg: 100                 # = 280 deg: suggested by suggest_board_pose --mock
+  length: 0.46
+  width: 0.11
+  thickness: 0.005
+  bgr: [140, 180, 215]
+  edge_bgr: [40, 70, 150]
+  clearance: 0.004             # hole is this much larger than the peg
+  insert_tolerance_deg: 8      # sim: a peg drops into its socket if yaw error < this
+  sockets:                     # offset along the board long axis; yaw = vertex angle relative to the board axis
+    - {shape: circle, offset: -0.165, size: 0.050, yaw_deg: 0}
+    - {shape: hexagon, offset: -0.055, size: 0.052, yaw_deg: 0}      # vertices along the board
+    - {shape: square, offset: 0.055, size: 0.059, yaw_deg: 45}     # sides parallel to the board
+    - {shape: triangle, offset: 0.165, size: 0.058, yaw_deg: -90}   # a vertex points away from the robot
+
+pegs:   # size = circumscribed diameter
+  - {color: yellow, shape: triangle, x: 0.06, y: 0.18, yaw_deg: 10, size: 0.058, height: 0.10, bgr: [30, 220, 240]}
+  - {color: blue, shape: square, x: 0.10, y: -0.17, yaw_deg: 20, size: 0.059, height: 0.10, bgr: [200, 90, 20]}
+  - {color: orange, shape: hexagon, x: 0.06, y: 0.26, yaw_deg: 5, size: 0.052, height: 0.10, bgr: [20, 110, 245]}
+  - {color: green, shape: circle, x: 0.13, y: -0.26, yaw_deg: 0, size: 0.050, height: 0.10, bgr: [40, 210, 150]}
+
+aruco:
+  dictionary: DICT_4X4_50
+  id: 0
+  length: 0.04
+  x: 0.06
+  y: 0.22
+  yaw_deg: 0

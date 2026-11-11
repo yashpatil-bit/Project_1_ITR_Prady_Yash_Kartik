@@ -1,0 +1,37 @@
+# HSV colour thresholds per peg colour (OpenCV ranges: H 0-180, S 0-255, V 0-255).
+# Tune live in the lab with:   ros2 run peg_sorting hsv_tuner
+# A colour may list several [low, high] ranges; the masks are OR-ed.
+# expected_shape is the colour -> shape prior.  It is only used if the
+# geometric shape detection is not confident (see vision.yaml).
+pegs:
+  yellow:
+    hsv_ranges: [[[20, 110, 110], [34, 255, 255]]]
+    expected_shape: triangle
+    display_bgr: [0, 230, 255]
+    min_area_px: 300
+  blue:
+    hsv_ranges: [[[95, 110, 40], [130, 255, 255]]]
+    expected_shape: square
+    display_bgr: [255, 120, 0]
+    min_area_px: 300
+  orange:
+    hsv_ranges: [[[0, 160, 170], [18, 255, 255]]]
+    expected_shape: hexagon
+    display_bgr: [0, 128, 255]
+    min_area_px: 300
+  green:
+    hsv_ranges: [[[35, 80, 60], [85, 255, 255]]]
+    expected_shape: circle
+    display_bgr: [0, 255, 0]
+    min_area_px: 300
+
+# The wooden (MDF) sorting board, including the reddish-brown burnt edges
+# around the holes.  Used to find the board and its holes.
+board:
+  hsv_ranges:
+    - [[5, 35, 110], [30, 165, 255]]     # MDF wood
+    - [[0, 90, 50], [20, 235, 200]]      # burnt / marker edges around holes
+
+morphology:
+  open_px: 3
+  close_px: 7

@@ -1,0 +1,54 @@
+camera:
+  serial: ''            # leave empty to use the first RealSense found
+  width: 848
+  height: 480
+  fps: 30
+  visual_preset: high_accuracy
+  spatial_filter: true
+  temporal_filter: true
+  hole_filling: false
+  warmup_frames: 30
+  exposure: 0           # 0 = auto.  Fix it (e.g. 150) if lighting makes colours flicker.
+  white_balance: 0      # 0 = auto.  Fix it (e.g. 4600) for stable colours.
+
+# Region (robot base frame, metres) where pegs / board may be.  Everything
+# outside is ignored (cables, ruler, power supply ...).
+workspace:
+  x: [0.02, 0.42]
+  y: [-0.32, 0.32]
+
+table_z: 0.0            # height of the surface the pegs stand on, in the base frame
+
+pegs:
+  min_height: 0.03      # blob pixels must be at least this high above the table
+  max_height: 0.20
+  top_band: 0.012       # points within this of the highest point = top face
+  min_top_points: 60
+  raster_resolution: 0.0015
+  raster_close_px: 5
+  edge_erode_px: 3
+  blur_px: 3
+  default_width: 0.05
+  min_shape_confidence: 0.6
+  fallback_to_color_prior: true
+  yolo_min_conf: 0.5
+
+board:
+  thickness: 0.005      # MDF thickness (m) - measure it
+  bev_resolution: 0.001 # bird's-eye-view pixel size (m)
+  occluder_height: 0.015
+  close_m: 0.012
+  edge_margin_m: 0.004
+  min_area_m2: 0.01
+  hole_area_min_m2: 0.0006
+  hole_area_max_m2: 0.0080
+  min_solidity: 0.8
+  merge_dist: 0.02
+
+# Shape backend: geometry (default, no training) | yolo (needs a trained model)
+shape_backend: geometry
+yolo:
+  model_path: ''        # e.g. /home/you/peg_ws/src/<repo>/models/pegs_yolov8n.pt
+  class_names: [circle, hexagon, square, triangle]
+
+default_num_frames: 5

@@ -1,0 +1,2 @@
+# Optional: only for the YOLOv8 shape backend (tools/capture_dataset.py, tools/train_yolo.py)
+ultralytics>=8.1,<8.4
