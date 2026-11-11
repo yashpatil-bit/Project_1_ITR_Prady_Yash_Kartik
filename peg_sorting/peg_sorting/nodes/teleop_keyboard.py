@@ -59,12 +59,17 @@ class Teleop:
     def go_cartesian(self, x, y, z, pitch, quick=True):
         q = self.kin.ik(x, y, z, pitch)
         if q is None:
-            print('  unreachable: (%.3f, %.3f, %.3f) pitch %.0f deg' % (x, y, z, math.degrees(pitch)))
+            print('  unreachable: (%.3f, %.3f, %.3f) pitch %.0f deg%s' % (
+                x, y, z, math.degrees(pitch),
+                '' if self.kin.within_limits(self.r.joints()) else
+                '  <- the arm is outside its normal range: press h (home) first'))
             return False
         self.target = [x, y, z, pitch]
         traj = joint_move(self.r.joints(), q, self.r.limits, 1.0 if quick else 0.7)
-        self.r.follow(traj, wait=not quick)
-        return True
+        res = self.r.follow(traj, wait=not quick)
+        if not quick and not res:
+            print('  move failed: %s' % res.message)
+        return bool(res) if not quick else True
 
     def jog(self, dx=0.0, dy=0.0, dz=0.0, dpitch=0.0, dyaw=0.0):
         if self.target is None:
@@ -185,11 +190,11 @@ class Teleop:
             res = self.r.gripper(0.0)
             if res is not None:
                 print('  gripper %.2f %s' % (res.position, '(holding something)' if res.stalled else ''))
-        elif k == 'h':
-            self.r.move_joints(self.cfg['poses']['home'], 0.7)
-            self.sync_target()
-        elif k == 'b':
-            self.r.move_joints(self.cfg['poses']['observe'], 0.7)
+        elif k in ('h', 'b'):
+            name = 'home' if k == 'h' else 'observe'
+            print('  moving to %s pose ...' % name)
+            res = self.r.move_joints(self.cfg['poses'][name], 0.5)
+            print('  %s' % ('done' if res else 'FAILED: %s (see the driver terminal)' % res.message))
             self.sync_target()
         elif k == 'P':
             q = [round(float(v), 3) for v in self.r.joints()]

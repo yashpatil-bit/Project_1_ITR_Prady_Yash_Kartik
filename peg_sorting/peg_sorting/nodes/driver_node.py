@@ -191,9 +191,17 @@ class DriverNode(Node):
             return res
         T = np.array([p.time_from_start.sec + p.time_from_start.nanosec * 1e-9 for p in traj.points])
         Q = np.array([[p.positions[i] for i in idx] for p in traj.points])
-        if np.any(Q < np.array(self.lower) - 0.01) or np.any(Q > np.array(self.upper) + 0.01):
+        with self.state_lock:
+            q_now = self.q.copy()
+        # A joint that is currently outside its limit (e.g. the arm resting folded back after
+        # power-up) may move anywhere between where it is now and the limit, so that moves back
+        # into the valid range (like 'go home') are allowed.
+        lo = np.minimum(np.array(self.lower), q_now) - 0.01
+        hi = np.maximum(np.array(self.upper), q_now) + 0.01
+        if np.any(Q < lo) or np.any(Q > hi):
+            bad = sorted({self.names[j] for j in range(4) if np.any(Q[:, j] < lo[j]) or np.any(Q[:, j] > hi[j])})
             res.error_code = FollowJointTrajectory.Result.INVALID_GOAL
-            res.error_string = 'trajectory violates joint limits'
+            res.error_string = 'trajectory violates joint limits (%s)' % ', '.join(bad)
             self.get_logger().error(res.error_string)
             gh.abort()
             return res
