@@ -17,7 +17,11 @@ while [[ $# -gt 0 ]]; do
     *) echo "unknown option $1"; exit 1 ;;
   esac; shift
 done
-WS="${PEG_WS:-$HOME/peg_ws}"
+# workspace: $PEG_WS, else the repo itself (colcon build run inside the repo), else ~/peg_ws
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -n "$PEG_WS" ]; then WS="$PEG_WS"
+elif [ -f "$REPO/install/setup.bash" ]; then WS="$REPO"
+else WS="$HOME/peg_ws"; fi
 set +u
 [ -f /opt/ros/humble/setup.bash ] && source /opt/ros/humble/setup.bash
 [ -f "$WS/install/setup.bash" ] && source "$WS/install/setup.bash"
