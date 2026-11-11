@@ -2,8 +2,8 @@
 
     ros2 run peg_sorting check_calibration
 
-The arm hovers its tool point 1 cm above the top-centre of every detected peg.
-Look from the side: it should be centred on each peg.  If it is consistently
+The gripper opens and hovers with its FINGERTIPS ~2.5 cm above the top-centre of every
+detected peg.  Look from the side and the front: the open fingers should be centred on the peg.  If it is consistently
 off, jog it (teleop keys) until it is centred and press ENTER; the average
 correction over all pegs is written to camera_calib.yaml -> xyz_correction_m.
 ENTER without jogging = "it was fine".  ESC = quit without saving.
@@ -32,15 +32,20 @@ def main(args=None):
         return
     corrections = []
     print(__doc__)
+    tip = float(robot.robot_cfg['kinematics'].get('fingertip_offset', 0.015))  # tool point -> fingertip ends
+    hover = 0.025
+    robot.gripper(1.0)
     with KeyReader() as kr:
         for m in res.pegs:
-            target = np.array([m.top_center.x, m.top_center.y, m.top_center.z + 0.01])
+            # tool point high enough that the fingertips stay `hover` above the top, whatever the pitch
+            target = np.array([m.top_center.x, m.top_center.y, m.top_center.z + hover + tip])
             q, pitch = robot.kin.ik_search_pitch(*target)
             if q is None:
                 print('%s peg out of reach, skipped' % m.color)
                 continue
-            print('\n%s %s: hovering 1 cm above (%.3f, %.3f, %.3f), pitch %.0f deg. Centre it, ENTER.' % (
-                m.color, m.shape, *target, math.degrees(pitch)))
+            print('\n%s %s (top at %.0f mm): fingertips ~%.0f mm above it, pitch %.0f deg. '
+                  'Centre it (w/a/s/d, never f), then ENTER.' % (
+                      m.color, m.shape, m.top_center.z * 1e3, hover * 1e3, math.degrees(pitch)))
             robot.move_joints(q, 0.6)
             tele.sync_target()
             done = False
@@ -51,6 +56,7 @@ def main(args=None):
                 if k in ('\n', '\r'):
                     x, y, z, _ = robot.kin.fk(robot.joints())
                     corr = np.array([x, y, z]) - target
+                    corr[2] = 0.0   # only horizontal offsets are judged here
                     corrections.append(corr)
                     print('   correction %s mm' % np.round(corr * 1e3, 1))
                     tele.jog(dz=0.05)
