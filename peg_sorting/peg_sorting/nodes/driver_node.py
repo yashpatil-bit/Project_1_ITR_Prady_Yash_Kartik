@@ -77,6 +77,7 @@ class DriverNode(Node):
         self._read_state()
         self.cmd_q = self.q.copy()
         self.estop = False
+        self._sim_blocked_stamp = 0.0
         self.active_token = 0
         self.token_lock = threading.Lock()
 
@@ -162,6 +163,7 @@ class DriverNode(Node):
         return res
 
     def _on_sim_blocked(self, msg):
+        self._sim_blocked_stamp = time.time()
         if msg.data < 0:
             self.bus.gripper_stall_tick = None
         else:
@@ -282,6 +284,12 @@ class DriverNode(Node):
         pos = float(min(max(gh.request.command.position, 0.0), 1.0))
         goal_tick = int(round(self.closed_ticks + pos * (self.open_ticks - self.closed_ticks)))
         gid = self.bus.gripper_id
+        if self.mock:
+            # Simulation only: wait until the simulator has told us (after this command) whether a
+            # peg is between the fingers, otherwise a slow PC closes the fingers "through" the peg.
+            t_cmd = time.time()
+            while self._sim_blocked_stamp < t_cmd and time.time() - t_cmd < 1.0:
+                time.sleep(0.01)
         try:
             self.bus.write_goal_ticks({gid: goal_tick})
         except Exception as e:  # noqa: BLE001
