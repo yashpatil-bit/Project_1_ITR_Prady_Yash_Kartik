@@ -116,7 +116,7 @@ sudo apt update && sudo apt install -y ros-humble-ros-base python3-colcon-common
 
 ```bash
 # 2) ROS packages used by this project
-sudo apt install -y ros-humble-control-msgs ros-humble-dynamixel-sdk
+sudo apt install -y ros-humble-control-msgs ros-humble-dynamixel-sdk python3-serial
 ```
 
 ```bash
