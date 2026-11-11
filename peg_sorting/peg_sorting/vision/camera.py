@@ -29,8 +29,10 @@ class RealSenseCamera:
         self.fps = int(c.get('fps', 30))
         self.pipeline = rs.pipeline()
         serial = str(c.get('serial', '') or '')
-        # Requested mode first; then modes that also work on a USB 2 connection.
-        modes = [(self.width, self.height, self.fps), (640, 480, 15), (640, 480, 6), (424, 240, 15)]
+        # Requested mode first; then modes that also work on a USB 2 connection.  A mode only
+        # counts if frames actually arrive (on USB 2 a mode can start and then deliver nothing).
+        modes = [(self.width, self.height, self.fps), (640, 480, 15), (640, 480, 6), (424, 240, 15),
+                 (424, 240, 6)]
         profile, errors = None, []
         for (w, h, fps) in modes:
             config = rs.config()
@@ -40,12 +42,25 @@ class RealSenseCamera:
             config.enable_stream(rs.stream.color, w, h, rs.format.bgr8, fps)
             try:
                 profile = self.pipeline.start(config)
+            except RuntimeError as e:
+                errors.append('%dx%d@%d: %s' % (w, h, fps, e))
+                continue
+            try:
+                for _ in range(3):
+                    self.pipeline.wait_for_frames(10000)
                 self.width, self.height, self.fps = w, h, fps
                 break
             except RuntimeError as e:
-                errors.append('%dx%d@%d: %s' % (w, h, fps, e))
+                errors.append('%dx%d@%d: started but %s' % (w, h, fps, e))
+                try:
+                    self.pipeline.stop()
+                except RuntimeError:
+                    pass
+                profile = None
+                time.sleep(1.0)
         if profile is None:
-            raise RuntimeError('RealSense could not start any stream mode:\n  ' + '\n  '.join(errors))
+            raise RuntimeError('RealSense could not stream in any mode (USB 2 cable/port? try another '
+                               'cable or the USB-C port):\n  ' + '\n  '.join(errors))
         if (self.width, self.height, self.fps) != modes[0]:
             print('WARNING: RealSense running at %dx%d@%dfps (requested %dx%d@%d). Probably a USB 2 '
                   'connection - use a USB 3 port + cable for best depth.' % (
@@ -95,7 +110,7 @@ class RealSenseCamera:
             self.usb = '?'
         # let auto exposure settle
         for _ in range(int(c.get('warmup_frames', 30))):
-            self.pipeline.wait_for_frames()
+            self.pipeline.wait_for_frames(10000)
 
     def get_frame(self, timeout_ms=2000):
         frames = self.pipeline.wait_for_frames(timeout_ms)
