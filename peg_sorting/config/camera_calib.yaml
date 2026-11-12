@@ -1,26 +1,24 @@
-# Camera -> robot base extrinsic calibration.
-# Written by:  ros2 run peg_sorting calibrate_aruco      (quick, uses the ArUco marker)
-#         or:  ros2 run peg_sorting calibrate_handeye    (more accurate, touch points)
-# The values below are a PLACEHOLDER (the simulated camera pose) until you calibrate.
-calibrated: false
-method: placeholder
+calibrated: true
+method: aruco
 T_base_cam:
-  translation_m: [0.3, 0.45, 0.5]
-  rpy_rad: [-2.3917, 0.0, 2.881]
-  matrix: null
-# Fine correction added to every detected position (m), see docs/calibration.md
-xyz_correction_m: [0.0, 0.0, 0.0]
-
+  translation_m: [0.18398002492217724, 0.12305373048674956, 0.5141674160957337]
+  rpy_rad: [-2.85639767720789, 0.040525687319265535, 2.8923488344867665]
+  matrix:
+  - [-0.9683035447183586, 0.24775371614981123, -0.0317228847966242, 0.18398002492217724]
+  - [0.24646868531392582, 0.9271425259359887, -0.2822408966834162, 0.12305373048674956]
+  - [-0.040514595462452646, -0.28111355843322916, -0.9588189270240346, 0.5141674160957337]
+  - [0.0, 0.0, 0.0, 1.0]
+xyz_correction_m: [0.0005092146226696528, 5.5416841680880347e-05, 0.0]
 aruco:
-  dictionary: auto      # auto = try the common dictionaries, or e.g. DICT_4X4_50
-  marker_id: -1         # -1 = use the first marker found
-  marker_length_m: 0.04 # MEASURE the black square's side length and enter it here
-  # Pose of the marker CENTRE in the robot base frame (origin on the table under
-  # joint 1, x forward, y left).  MEASURE these with a ruler.  yaw = angle of
-  # the marker's x-axis (its "right" edge direction when the marker is read
-  # upright) from the robot's x axis, counter-clockwise.
-  marker_in_base:
-    x: 0.10
-    y: 0.25
-    z: 0.0
-    yaw_deg: 0.0
+  dictionary: DICT_4X4_50
+  marker_id: 0
+  marker_length_m: 0.04
+  marker_in_base: {x: 0.099, y: 0.103, z: 0.0, yaw_deg: -90.0}
+date: 2026-11-12 04:46
+planar_correction:
+  A:
+  - [0.9791619123763682, -0.056390326812755735]
+  - [0.04285354571239666, 1.001422107004788]
+  b: [0.011300798895516315, 0.01568985082217844]
+  note: 'calibrate_workspace 2026-11-12 06:01: 8 points, residual RMS 2.8 mm (similarity
+    scale 0.991)'

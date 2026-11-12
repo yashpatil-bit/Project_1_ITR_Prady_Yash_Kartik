@@ -1,0 +1,5 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261112_061050_autonomy,autonomy,green,circle,1,True,"dist 4mm, top +1.7mm",,0.001,4.849,11.103,16.494,16.493,0.0,45.0,direct
+20261112_061050_autonomy,autonomy,yellow,triangle,1,True,"dist 0mm, top +2.2mm",,16.496,21.526,27.628,33.141,16.645,-5.7,42.5,direct
+20261112_061050_autonomy,autonomy,blue,square,1,True,"dist 4mm, top +1.0mm",,33.141,38.582,46.159,51.439,18.298,7.6,50.0,inner r=0.15
+20261112_061050_autonomy,autonomy,orange,hexagon,1,True,unverified (peg not visible),,51.44,57.264,63.549,68.674,17.233,-9.2,50.0,direct

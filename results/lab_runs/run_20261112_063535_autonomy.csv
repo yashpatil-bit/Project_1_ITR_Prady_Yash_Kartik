@@ -1,0 +1,2 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261112_063535_autonomy,autonomy,yellow,triangle,1,False,"dist 68mm (dx +53, dy -42), top -57.7mm -> not in the socket (missed by more than 12 mm)","verification: dist 68mm (dx +53, dy -42), top -57.7mm -> not in the socket (missed by more than 12 mm)",0.0,4.74,15.072,20.751,20.751,57.3,40.0,outer r=0.28
