@@ -139,7 +139,7 @@ def detect_pegs(hsv, pts_base, color_cfg, vcfg, table_z=0.0, yolo=None, color_im
             tall = zz[(zz > table_z + min_h) & (zz < table_z + float(pc['max_height']))]
             if len(zz) >= 40 and len(tall) < 0.15 * len(zz) and len(tall) < 30:
                 continue  # plenty of depth and it is flat -> not a peg (burnt board edge, tape, ...)
-            if len(tall) >= 15:
+            if len(tall) >= int(pc.get('min_depth_points', 60)):
                 z_top = float(np.percentile(tall, 95))
                 h_src = 'depth'
             else:

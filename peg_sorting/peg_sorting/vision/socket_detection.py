@@ -74,6 +74,10 @@ def detect_board_and_sockets(color, height_map, K, T_base_cam, color_cfg, vcfg, 
     close = int(max(3, round(float(bc['close_m']) * px))) | 1
     solid = cv2.morphologyEx(board_mask, cv2.MORPH_CLOSE,
                              cv2.getStructuringElement(cv2.MORPH_RECT, (close, close)))
+    # cut thin attachments (e.g. the rim of a wood-coloured peg standing against the board):
+    # the board itself is ~10 cm wide, so an opening of ~1.2 cm only removes things stuck to it
+    cut = int(max(3, round(float(bc.get('open_m', 0.012)) * px))) | 1
+    solid = cv2.morphologyEx(solid, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (cut, cut)))
     contours, _ = cv2.findContours(solid, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return BoardDetection(False), [], debug

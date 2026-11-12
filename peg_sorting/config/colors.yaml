@@ -29,7 +29,7 @@ pegs:
 # around the holes.  Used to find the board and its holes.
 board:
   hsv_ranges:
-    - [[5, 35, 110], [30, 165, 255]]     # MDF wood
+    - [[5, 35, 110], [30, 125, 255]]     # MDF wood (S <= 125: the yellow peg is S > 140)
     - [[0, 90, 50], [20, 235, 200]]      # burnt / marker edges around holes
 
 morphology:
