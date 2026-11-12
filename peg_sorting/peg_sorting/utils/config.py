@@ -46,6 +46,17 @@ def load_yaml(name):
     return data
 
 
+def _plain(v):
+    """numpy scalars/arrays -> plain Python (yaml.safe_dump cannot write numpy types)."""
+    if isinstance(v, dict):
+        return {k: _plain(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_plain(x) for x in v]
+    if hasattr(v, 'tolist'):
+        return v.tolist()
+    return v
+
+
 def save_yaml(name, data, header=None):
     """Write ``data`` to the config file, following symlinks so the source
     file is updated when the workspace was built with --symlink-install."""
@@ -54,7 +65,7 @@ def save_yaml(name, data, header=None):
         if header:
             for line in header.strip().splitlines():
                 f.write('# ' + line + '\n')
-        yaml.safe_dump(data, f, sort_keys=False, default_flow_style=None)
+        yaml.safe_dump(_plain(data), f, sort_keys=False, default_flow_style=None)
     return path
 
 

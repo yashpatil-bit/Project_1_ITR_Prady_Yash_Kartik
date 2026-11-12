@@ -147,8 +147,9 @@ def main(args=None):
     old = [float(v) for v in cfg['dynamixel']['joint_offsets_rad']]
     # reported angle = sign*(tick-2048)*k - offset ; the true angle is reported + d -> new offset = old - d
     new = [old[0], old[1] - d2, old[2] - d3, old[3] - d4]
+    # plain Python floats: yaml cannot write numpy scalars
     path = update_yaml('robot.yaml', {
-        'dynamixel': {'joint_offsets_rad': [round(v, 5) for v in new]},
+        'dynamixel': {'joint_offsets_rad': [round(float(v), 5) for v in new]},
         'kinematics': {'tool_length': round(float(tip - tip_off), 4), 'base_z_offset': round(float(-h0), 4)}})
     print('saved %s (%s).  RESTART the driver, vision and teleop now.' % (path, time.strftime('%H:%M')))
     robot.shutdown()
