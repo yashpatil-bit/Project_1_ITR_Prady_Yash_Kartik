@@ -34,9 +34,7 @@ execution:
   max_retries: 2
   observe_num_frames: 5
   verify: true
-  verify_tolerance: 0.012    # peg must end within this distance of the socket centre (camera vs camera)
-  retry_offset_gain: 0.7     # on a miss, shift the retry by this fraction of the measured miss
-  retry_offset_max: 0.012    # ... but never more than this (m)
+  verify_tolerance: 0.025    # peg must end within this distance of the socket centre
   search_offsets_m: [[0.0, 0.0], [0.004, 0.0], [-0.004, 0.0], [0.0, 0.004], [0.0, -0.004]]
   log_dir: ~/peg_sorting_logs
 

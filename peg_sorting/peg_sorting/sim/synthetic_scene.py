@@ -131,8 +131,6 @@ class SimWorld:
                 p.yaw = joint1 + p.rel_yaw
 
     def _drop(self, p):
-        bias = self.cfg.get('release_bias', [0.0, 0.0])   # sim only: peg lands this far from the tool
-        p.x, p.y = p.x + float(bias[0]), p.y + float(bias[1])
         for s in self.sockets:
             if s.shape != p.shape:
                 continue

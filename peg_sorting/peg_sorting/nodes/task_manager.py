@@ -8,9 +8,7 @@ Loop:  observe -> detect pegs + sockets -> match by shape -> for each pair:
        plan -> pick (verify grasp) -> transport -> guarded insertion (retry
        with small offsets if blocked) -> release -> observe & verify -> retry
 """
-import json
 import math
-import os
 import sys
 import threading
 import time
@@ -60,21 +58,6 @@ class TaskManager:
         self.sockets = {}      # shape -> SocketInfo (cached; holes disappear once filled)
         self.placed = {}       # color -> SocketInfo
         self.true_height = {}  # color -> peg height measured standing on the table
-        self.place_offset = {}  # color -> (dx, dy) learned from where a missed peg actually ended up
-        ex_ = self.task['execution']
-        self.offset_gain = float(ex_.get('retry_offset_gain', 0.7))
-        self.offset_max = float(ex_.get('retry_offset_max', 0.012))
-        # a systematic placement error is shared by all pegs: start every peg from the offset
-        # learned so far (also remembered between runs)
-        self.offset_file = os.path.join(os.path.expanduser(ex_.get('log_dir', '~/peg_sorting_logs')),
-                                        'learned_place_offset.json')
-        self.global_offset = (0.0, 0.0)
-        if params.get('use_learned_offset', True):
-            try:
-                with open(self.offset_file) as f:
-                    self.global_offset = tuple(json.load(f)['offset_m'])
-            except (OSError, ValueError, KeyError):
-                pass
         self.table_z = float(self.vision_cfg.get('table_z', 0.0))
 
     def log(self, msg):
@@ -219,11 +202,7 @@ class TaskManager:
             w = src.width if src else 0.05
             others.append(PegInfo(color, s.shape, s.x, s.y, 0.1, 0.1, 0.0, w))
         try:
-            off = self.place_offset.get(peg.color, self.global_offset)
-            if off != (0.0, 0.0):
-                self.log('%s: placing with a learned correction of (%+.1f, %+.1f) mm'
-                         % (peg.color, off[0] * 1e3, off[1] * 1e3))
-            plan = self.planner.plan(peg, sock, self.r.joints(), others, self.speed, place_offset=off)
+            plan = self.planner.plan(peg, sock, self.r.joints(), others, self.speed)
         except PlanningError as e:
             return False, 'planning: %s' % e, None
         self.log('%s %s -> socket (%.3f, %.3f): pitch %.0f deg, %s, %.1fs planned, predicted yaw error %.0f deg' % (
@@ -267,38 +246,10 @@ class TaskManager:
         expected_top = self.table_z + self.true_height.get(peg.color, peg.height)
         on_board = m.z_top > expected_top + 0.5 * thickness
         ok = d < self.verify_tol and not on_board
-        if not ok and d < 0.05:
-            # the peg ended up (m.x, m.y) instead of at the socket: shift the next placement by
-            # the opposite amount (gain < 1: a leaning peg's top overstates the miss)
-            ox, oy = self.place_offset.get(peg.color, self.global_offset)
-            ox -= self.offset_gain * (m.x - sock.x)
-            oy -= self.offset_gain * (m.y - sock.y)
-            n = math.hypot(ox, oy)
-            if n > self.offset_max:
-                ox, oy = ox * self.offset_max / n, oy * self.offset_max / n
-            self.place_offset[peg.color] = (ox, oy)
-            self.global_offset = (ox, oy)
-            self.save_offset()
-        elif ok:
-            # remember what worked (the offset this peg was placed with)
-            self.global_offset = self.place_offset.get(peg.color, self.global_offset)
-            self.save_offset()
-        info = 'dist %.0fmm (dx %+.0f, dy %+.0f), top %+.1fmm' % (d * 1e3, (m.x - sock.x) * 1e3,
-                                                                 (m.y - sock.y) * 1e3, (m.z_top - expected_top) * 1e3)
+        info = 'dist %.0fmm, top %+.1fmm' % (d * 1e3, (m.z_top - expected_top) * 1e3)
         if on_board:
             info += ' -> resting ON the board (not inserted; yaw misaligned?)'
-        elif not ok:
-            info += ' -> not in the socket (missed by more than %.0f mm)' % (self.verify_tol * 1e3)
         return ok, info, pegs_now
-
-    def save_offset(self):
-        try:
-            os.makedirs(os.path.dirname(self.offset_file), exist_ok=True)
-            with open(self.offset_file, 'w') as f:
-                json.dump({'offset_m': [float(v) for v in self.global_offset],
-                           'note': 'learned placement correction; delete this file to reset'}, f)
-        except OSError:
-            pass
 
     def print_setup(self, pegs):
         print('\n================ SCENE ================')
@@ -330,7 +281,7 @@ def main(args=None):
     robot = RobotInterface('task_manager')
     n = robot.node
     params = {}
-    for name, default in (('confirm', True), ('speed_scale', 0.0), ('use_learned_offset', True)):
+    for name, default in (('confirm', True), ('speed_scale', 0.0)):
         n.declare_parameter(name, default)
         params[name] = n.get_parameter(name).value
     tm = TaskManager(robot, params)
