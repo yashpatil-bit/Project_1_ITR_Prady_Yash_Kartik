@@ -39,6 +39,7 @@ setup(
             'evaluate_timing = peg_sorting.tools.evaluate_timing:main',
             'suggest_board_pose = peg_sorting.tools.suggest_board_pose:main',
             'calibrate_workspace = peg_sorting.tools.calibrate_workspace:main',
+            'calibrate_arm = peg_sorting.tools.calibrate_arm:main',
         ],
     },
 )
