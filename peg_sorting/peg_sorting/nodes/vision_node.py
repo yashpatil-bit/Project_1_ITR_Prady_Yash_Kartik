@@ -143,9 +143,12 @@ class VisionNode(Node):
             math.hypot(p.x - x, p.y - y) < 0.012 and p.z_bottom + p.height - 0.06 < z < p.z_bottom + p.height
             for p in self.sim.pegs)
         self.blocked_pub.publish(Float64(data=0.35 if between else -1.0))
+        held_pegs = [p for p in self.sim.pegs if p.held]
+        # the fingers must open wider than the peg to let go of it (real gripper opens ~6 cm)
+        opening = g * float(self.sim.cfg.get('gripper_max_opening', 0.06))
         if g < 0.45 and between:
             self.sim.update_gripper(tool, q[0], closed=True)
-        elif g > 0.5 and held:
+        elif g > 0.5 and held and all(opening > 0.8 * p.size for p in held_pegs):
             self.sim.update_gripper(tool, q[0], closed=False)
         else:
             self.sim.update_gripper(tool, q[0], closed=held)

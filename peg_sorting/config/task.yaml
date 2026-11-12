@@ -9,6 +9,7 @@ place:
   insertion_start_above_board: 0.012  # peg bottom this far above the board before slow insertion
   bottom_clearance: 0.004    # stop with the peg bottom this far above the table
   release_settle: 0.10
+  release_fraction: 1.0      # gripper opening when letting go (1.0 = fully open). 0.6 was narrower than a 4 cm peg!
   retreat_height: 0.05       # tool goes this far above the peg top after release
 
 transport:

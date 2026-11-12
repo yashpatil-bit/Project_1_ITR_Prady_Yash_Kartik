@@ -56,7 +56,7 @@ def choose_targets(planner, peg, n, marker_xy, start_xy, q_ref, x_range=(0.08, 0
     return chosen
 
 
-def run_steps(robot, steps, gr, skip_open=False):
+def run_steps(robot, steps, gr, release=1.0, skip_open=False):
     for st in steps:
         if st.kind == 'traj':
             res = robot.follow(st.traj, guarded=st.guarded)
@@ -69,7 +69,7 @@ def run_steps(robot, steps, gr, skip_open=False):
                 if not skip_open:
                     robot.gripper(1.0)
             elif st.gripper == 'release':
-                robot.gripper(float(gr.get('release_fraction', 0.6)))
+                robot.gripper(release)
             elif st.gripper == 'close':
                 res = robot.gripper(0.0)
                 if res is None or not (res.stalled or res.position > float(gr.get('grasp_detect_fraction', 0.08))):
@@ -89,6 +89,7 @@ def main(args=None):
     vcfg = load_yaml('vision.yaml')
     calib = load_yaml('camera_calib.yaml')
     gr = robot.robot_cfg['gripper']
+    release = float(task['place'].get('release_fraction', gr.get('release_fraction', 1.0)))
     table_z = float(vcfg.get('table_z', 0.0))
     planner = PickPlacePlanner(robot.kin, task, robot.limits, table_z=table_z)
     height = float(vcfg['pegs'].get('nominal_height', 0.10))
@@ -160,7 +161,7 @@ def main(args=None):
                     except PlanningError as e:
                         print('skip (%.0f, %.0f): %s' % (tgt[0] * 1e3, tgt[1] * 1e3, e))
                         continue
-                ok, why = run_steps(robot, steps, gr)
+                ok, why = run_steps(robot, steps, gr, release)
                 if not ok:
                     print('stopped: %s' % why)
                     break
@@ -172,7 +173,17 @@ def main(args=None):
                 if not seen:
                     print('  point %d: peg not seen by the camera - skipped' % (i + 1))
                     continue
-                p = seen[0]
+                p = min(seen, key=lambda s: math.hypot(s.top_center.x - tgt[0], s.top_center.y - tgt[1]))
+                if p.top_center.z > table_z + 1.25 * height:
+                    print('  point %d: the peg is IN THE AIR (top at %.0f mm) - it was not released. Stopping. '
+                          '(gripper opening too small? check place.release_fraction / gripper.open_ticks)'
+                          % (i + 1, p.top_center.z * 1e3))
+                    break
+                if math.hypot(p.top_center.x - tgt[0], p.top_center.y - tgt[1]) > 0.06:
+                    print('  point %d: the camera sees the peg %.0f mm from where it was placed - more than any '
+                          'calibration error; stopping (did it fall or get carried away?)' % (
+                              i + 1, 1e3 * math.hypot(p.top_center.x - tgt[0], p.top_center.y - tgt[1])))
+                    break
                 if p.top_center.z < table_z + 0.8 * height:
                     print('  point %d: the peg seems to have FALLEN OVER (top at %.0f mm) - stopping. Stand it up '
                           'and run again; if the spot was near the plate edge, shrink workspace_calibration in '

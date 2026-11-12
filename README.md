@@ -218,40 +218,42 @@ wavy (a flat table is not flat in `realsense-viewer`'s 3-D view), run *On-Chip C
 848×480 @ 30 fps, *High Accuracy* preset, spatial + temporal filters. Fix `exposure` / `white_balance` if
 the lab lighting makes colours flicker.
 
-### 6.2 Extrinsics: camera → robot base (required)
+### 6.2 Calibration sequence for our setup (do it in this order)
 
-Pick one of the methods; B and C refine A.
+What we learned on the real setup: the camera (overhead D435i) is accurate to < 2 % when checked against a ruler, but
+**our arm does not match the stock Manipulator X model** (it reached ~8 % short and grasped too low). So the
+arm is calibrated first, then the camera is tied to the arm.
 
-**A. ArUco marker (5 minutes).** The marker already on the plate is used.
-1. Measure the black square's side → `camera_calib.yaml → aruco.marker_length_m`.
-2. Measure the marker **centre** in the robot base frame: x forward from the joint‑1 axis, y to the left → `aruco.marker_in_base.x/y`.
-   `yaw_deg` is the direction of the marker's x-axis, counter-clockwise from the robot's forward direction. It is a
-   multiple of 90° if the marker is square to the robot. The tool draws that axis as a **red arrow** on its check image,
-   so run it once, look at the arrow, then set `yaw_deg` (0 = arrow points forward, 90 = arrow points to the robot's left).
-3. Stop the vision node (it owns the camera) and run:
-   ```bash
-   ros2 run peg_sorting calibrate_aruco
-   ```
-   The dictionary and ID are detected automatically. The marker pose is computed from the colour corners **and**
-   a RANSAC fit of the table plane in the depth image, averaged over 30 frames. In simulation this is
-   about 2 mm / 0.4° accurate, versus about 10 mm / 1.4° for plain `solvePnP`. The tool reports the table height
-   seen through the new calibration (should be about 0 mm) and saves a check image with the robot axes and
-   workspace drawn on it.
-
-**B. Touch points (most accurate, about 10 minutes).** Driver and vision running:
+**A. Camera → robot from the ArUco marker (5 min, vision node stopped).** Measure the black square side and the
+marker centre from the point under the base axis (x forward, y left), then:
 ```bash
-ros2 run peg_sorting calibrate_handeye
+ros2 run peg_sorting calibrate_aruco --length 0.04 --x 0.099 --y 0.103 --yaw -90
 ```
-Put one peg at 4–6 spots spread over the workspace. At each spot the camera measures it, then you jog the gripper onto it and
-close it. A rigid transform (Kabsch) is fitted and the residuals are printed. Because it uses the same tool point as grasping, errors in tool
-length and marker measurement cancel out.
+The table **tilt** comes from a RANSAC plane over the whole visible table (a patch around the marker was 11°
+off on the shiny plate), the **height** from the marker itself. The check image shows the marker x-axis as a red
+arrow (set `--yaw` from it) and the robot axes, which must start under the base. Peg tops must then read ~100 mm.
 
-**C. Check and fine-tune.**
+**B. Arm calibration by touching the plate (10 min, driver running, plate empty).**
+```bash
+ros2 run peg_sorting calibrate_arm
+```
+At 10 poses you lower the closed gripper with `f` (2 mm steps) until the fingertips just touch the plate and
+press ENTER. It fits the joint 2/3/4 zero offsets, fingertip length and plate height; `y` saves them in
+`robot.yaml`. **Restart the driver** (and all other nodes) afterwards.
+
+**C. Workspace calibration (3 min, board removed, only the green peg on the plate).**
+```bash
+ros2 run peg_sorting calibrate_workspace
+```
+Stand the green peg between the open fingers when asked. The robot places it at 8 spots inside the plate
+(`task.yaml → workspace_calibration`) and the camera measures each one. A 2-D affine map camera → robot is fitted
+and saved as `camera_calib.yaml → planar_correction` (it stops if the peg falls over, is not released, or the
+fit residual is > 6 mm). **Restart the vision node**, put the board back.
+
+**D. Check.** The arm hovers (gripper open, fingertips ~2.5 cm above each peg) - it should be centred:
 ```bash
 ros2 run peg_sorting check_calibration
 ```
-The arm hovers 1 cm above every detected peg. If it is consistently off, jog it to the centre and press ENTER. The
-average offset is saved as `camera_calib.yaml → xyz_correction_m`.
 
 ### 6.3 Colour thresholds (parameter file `config/colors.yaml`)
 
