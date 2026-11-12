@@ -30,7 +30,7 @@ from ..utils.transforms import fit_affine_2d, fit_similarity_2d, planar_correcti
 from .check_calibration import safe_approach
 
 
-def choose_targets(planner, peg, n, marker_xy, start_xy, q_ref, x_range=(0.08, 0.24), y_range=(-0.14, 0.14)):
+def choose_targets(planner, peg, n, marker_xy, start_xy, q_ref, x_range=(0.08, 0.24), y_range=(-0.12, 0.09)):
     """Spread-out spots on the plate that the planner can reach (farthest-point sampling)."""
     cands = []
     for x in np.arange(x_range[0], x_range[1] + 1e-9, 0.02):
@@ -117,7 +117,12 @@ def main(args=None):
             # hand-over spot
             start = (0.12, -0.06)
             peg = PegInfo(a.color, 'circle', start[0], start[1], table_z + height, height, 0.0, 0.05)
-            targets = choose_targets(planner, peg, a.points, marker_xy, start, obs)
+            region = task.get('workspace_calibration') or {}
+            x_range = tuple(region.get('x', (0.08, 0.24)))
+            y_range = tuple(region.get('y', (-0.12, 0.09)))
+            print('placing inside x %s, y %s m (task.yaml -> workspace_calibration; keep 4 cm inside the plate)'
+                  % (list(x_range), list(y_range)))
+            targets = choose_targets(planner, peg, a.points, marker_xy, start, obs, x_range, y_range)
             if len(targets) < 4:
                 print('not enough reachable target spots (%d)' % len(targets))
                 return
@@ -168,6 +173,11 @@ def main(args=None):
                     print('  point %d: peg not seen by the camera - skipped' % (i + 1))
                     continue
                 p = seen[0]
+                if p.top_center.z < table_z + 0.8 * height:
+                    print('  point %d: the peg seems to have FALLEN OVER (top at %.0f mm) - stopping. Stand it up '
+                          'and run again; if the spot was near the plate edge, shrink workspace_calibration in '
+                          'task.yaml.' % (i + 1, p.top_center.z * 1e3))
+                    break
                 cam_pts.append([p.top_center.x, p.top_center.y])
                 rob_pts.append([tgt[0], tgt[1]])
                 print('  point %d: robot placed at (%.1f, %.1f) mm, camera sees (%.1f, %.1f) mm, top %.0f mm'
