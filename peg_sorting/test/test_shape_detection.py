@@ -55,3 +55,18 @@ def test_clean_polygons():
         if n:
             per = 2 * math.pi / n
             assert abs((outline_yaw(f, s) - 0.3 + per / 2) % per - per / 2) < math.radians(1.5)
+
+
+def test_duplicate_shapes_resolved_by_colour_prior():
+    from peg_sorting.utils.config import load_yaml
+    from peg_sorting.vision.peg_detection import PegDetection
+    from peg_sorting.vision.scene import resolve_duplicate_shapes
+
+    def peg(color, shape, conf):
+        return PegDetection(color, shape, 'geometry', conf, 0, 0, 0.1, 0.1, 0, 0.04, 100)
+    # yellow wrongly called a square, and MORE confident than the real square
+    pegs = resolve_duplicate_shapes([peg('yellow', 'square', 0.95), peg('blue', 'square', 0.80),
+                                     peg('orange', 'hexagon', 1.0), peg('green', 'circle', 1.0)],
+                                    load_yaml('colors.yaml'))
+    assert {p.color: p.shape for p in pegs} == {'yellow': 'triangle', 'blue': 'square',
+                                               'orange': 'hexagon', 'green': 'circle'}

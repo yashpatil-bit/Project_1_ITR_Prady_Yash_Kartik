@@ -143,17 +143,28 @@ def _merge_boards(boards):
 
 
 def resolve_duplicate_shapes(pegs, colors_cfg):
-    """If two pegs claim the same shape, give the less confident one its colour prior."""
+    """If several pegs claim the same shape, the one whose colour prior IS that shape keeps it
+    (otherwise the most confident one); every other peg gets its colour prior
+    (yellow=triangle, blue=square, ... from colors.yaml)."""
     cc = ColorConfig.from_dict(colors_cfg)
-    by_shape = defaultdict(list)
-    for p in pegs:
-        by_shape[p.shape].append(p)
-    for shape, lst in by_shape.items():
-        if len(lst) <= 1:
-            continue
-        lst.sort(key=lambda p: -p.shape_confidence)
-        for p in lst[1:]:
-            spec = cc.by_name(p.color)
-            if spec and spec.expected_shape:
-                p.shape, p.shape_source = spec.expected_shape, 'color_prior'
+
+    def prior(p):
+        spec = cc.by_name(p.color)
+        return spec.expected_shape if spec else ''
+    for _ in range(3):  # re-run: a reassignment can create a new duplicate
+        by_shape = defaultdict(list)
+        for p in pegs:
+            by_shape[p.shape].append(p)
+        changed = False
+        for shape, lst in by_shape.items():
+            if len(lst) <= 1:
+                continue
+            owners = [p for p in lst if prior(p) == shape]
+            keep = owners[0] if owners else max(lst, key=lambda p: p.shape_confidence)
+            for p in lst:
+                if p is not keep and prior(p) and prior(p) != p.shape:
+                    p.shape, p.shape_source = prior(p), 'color_prior'
+                    changed = True
+        if not changed:
+            break
     return pegs
