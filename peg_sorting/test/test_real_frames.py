@@ -49,3 +49,14 @@ def test_real_pegs_and_sockets():
     ys = [s.y for s in sorted(sockets, key=lambda s: s.y)]
     assert all(0.05 < b - a < 0.09 for a, b in zip(ys[:-1], ys[1:]))   # ~7 cm spacing along the board
     assert abs(math.degrees(board.yaw)) > 75                             # board runs along y
+
+
+def test_real_pegs_every_single_frame():
+    """Each frame on its own must give the right shapes (the live window shows single frames;
+    on the real setup the yellow triangle was once read as a square from patchy depth)."""
+    frames, T = _frames()
+    det = SceneDetector(load_yaml('colors.yaml'), load_yaml('vision.yaml'), T)
+    want = {'yellow': 'triangle', 'blue': 'square', 'orange': 'hexagon', 'green': 'circle'}
+    for fr in frames:
+        pegs, _, _, _ = det.detect(fr, with_sockets=False)
+        assert {p.color: p.shape for p in pegs} == want

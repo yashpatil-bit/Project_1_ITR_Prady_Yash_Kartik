@@ -221,6 +221,7 @@ class VisionNode(Node):
             return
         fr = self.frames[-1]
         pegs, board, sockets, _ = self.detector.detect(fr)
+        pegs = resolve_duplicate_shapes(pegs, self.colors_cfg)   # show what the robot would use
         self.latest_debug = self.detector.draw(fr, pegs, board, sockets, self._misalign(pegs, sockets))
         self._publish_debug(self.latest_debug)
 

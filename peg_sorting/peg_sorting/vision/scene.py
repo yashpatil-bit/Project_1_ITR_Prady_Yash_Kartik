@@ -80,7 +80,8 @@ class SceneDetector:
                 cv2.polylines(img, [uv], True, (255, 255, 255), 1)
             c = project([[p.x, p.y, p.z_top]], K, T)[0].astype(int)
             cv2.circle(img, (int(c[0]), int(c[1])), 4, (0, 0, 255), -1)
-            cv2.putText(img, '%s %s' % (p.color, p.shape), (x, max(12, y - 20)),
+            star = '*' if p.shape_source == 'color_prior' else ''   # * = decided by the colour rule
+            cv2.putText(img, '%s %s%s' % (p.color, p.shape, star), (x, max(12, y - 20)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 2)
             cv2.putText(img, '(%.0f,%.0f,%.0f)mm' % (p.x * 1e3, p.y * 1e3, p.z_top * 1e3),
                         (x, max(24, y - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, col, 1)

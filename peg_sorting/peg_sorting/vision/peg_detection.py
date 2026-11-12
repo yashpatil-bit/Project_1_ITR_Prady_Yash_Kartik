@@ -85,6 +85,36 @@ def _outline_px(mask):
     return c.reshape(-1, 2).astype(float) if len(c) >= 8 else None
 
 
+def silhouette_footprint(blob, K, T, z_top, table_z, res=0.001, levels=(0.35, 0.55, 0.75, 0.9, 1.0)):
+    """Footprint of a vertical prism from its colour silhouette: a ground point belongs to the
+    peg if the vertical segment above it (here sampled at several heights) projects inside the
+    blob.  Exact for any camera pose, independent of lighting; needs the blob to cover the sides
+    (the lowest ~30 % is skipped: shadows / contact with the table)."""
+    vv, uu = np.nonzero(blob)
+    if len(uu) < 30:
+        return None
+    h = z_top - table_z
+    c = pixels_to_plane(np.array([[uu.mean(), vv.mean()]]), K, T, table_z + 0.6 * h)[0]
+    if not np.all(np.isfinite(c)):
+        return None
+    half = 0.07
+    from .geometry import BirdsEyeView
+    bev = BirdsEyeView((c[0] - half, c[0] + half), (c[1] - half, c[1] + half), res)
+    m8 = blob.astype(np.uint8) * 255
+    acc = None
+    for f in levels:
+        w = bev.warp(m8, K, T, table_z + f * h, nearest=True) > 0
+        acc = w if acc is None else (acc & w)
+    acc = cv2.morphologyEx(acc.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    acc = _largest_cc(acc)
+    if acc is None:
+        return None
+    px = _outline_px(acc)
+    if px is None:
+        return None
+    return bev.to_base(px)
+
+
 def top_face_candidates(blob, hsv):
     """Image regions that may be the peg's top face.
     1. the brighter/more saturated part of the blob (Otsu on S*V): with light from above the
@@ -172,7 +202,7 @@ def detect_pegs(hsv, pts_base, color_cfg, vcfg, table_z=0.0, yolo=None, color_im
 def _measure(spec, blob, hsv, pts_base, z_top, h_src, table_z, area, bbox, pc, K, T, max_width):
     """Outline, centre, shape and size of one peg blob.  Candidates: the colour top face /
     whole blob projected onto the plane of the peg top (clean edges), and the top face from
-    the depth points.  When depth is good, colour outlines must agree with it."""
+    the depth points, and the colour silhouette; they vote on the shape."""
     # depth-based top face (needs dense depth on the top)
     pts = pts_base[blob]
     pts = pts[np.isfinite(pts).all(axis=1)]
@@ -184,28 +214,32 @@ def _measure(spec, blob, hsv, pts_base, z_top, h_src, table_z, area, bbox, pc, K
         if xy is not None and len(xy) >= 8:
             shape, conf, f = classify_outline(xy)
             if 2.0 * float(f['enclosing_radius']) <= max_width:
-                depth_cand = (conf - 0.05, 'depth', xy, shape, conf, f)
-    cands = []
+                depth_cand = ('depth', xy, shape, conf, f)
+    cands = []   # (name, outline_xy, shape, conf, features)
+
     if K is not None and T is not None:
-        for name, region in top_face_candidates(blob, hsv):
+        outlines = []
+        faces = top_face_candidates(blob, hsv)
+        top_px = next((int(r.sum()) for n, r in faces if n == 'top_face'), int(blob.sum()))
+        # the silhouette only means something if the colour blob includes the peg's sides
+        sides_in_blob = blob.sum() >= float(pc.get('silhouette_min_ratio', 1.4)) * max(top_px, 1)
+        if sides_in_blob:
+            sil = silhouette_footprint(blob, K, T, z_top, table_z)
+            if sil is not None and len(sil) >= 8:
+                outlines.append(('silhouette', sil))
+        for name, region in faces:
+            if name == 'blob' and sides_in_blob:
+                continue  # whole blob incl. sides projected at the top height is smeared
             px = _outline_px(region)
-            if px is None:
-                continue
-            xy = pixels_to_plane(px, K, T, z_top)
-            if not np.all(np.isfinite(xy)):
-                continue
+            if px is not None:
+                xy = pixels_to_plane(px, K, T, z_top)
+                if np.all(np.isfinite(xy)):
+                    outlines.append((name, xy))
+        for name, xy in outlines:
             shape, conf, f = classify_outline(xy)
             width = 2.0 * float(f['enclosing_radius'])
-            if width > max_width or width < 0.015:
-                continue
-            if depth_cand is not None:
-                fd = depth_cand[5]
-                if np.hypot(*(f['centroid'] - fd['centroid'])) > float(pc.get('agree_dist', 0.006)):
-                    continue
-                ratio = f['area'] / max(fd['area'], 1e-12)
-                if not 0.6 <= ratio <= 2.0:
-                    continue
-            cands.append((conf + (0.05 if name == 'top_face' else 0.0), name, xy, shape, conf, f))
+            if 0.015 <= width <= max_width:
+                cands.append((name, xy, shape, conf, f))
     if depth_cand is not None:
         cands.append(depth_cand)
     if not cands:
@@ -216,13 +250,25 @@ def _measure(spec, blob, hsv, pts_base, z_top, h_src, table_z, area, bbox, pc, K
                            float(pc.get('default_width', 0.05)), area, bbox)
         det._feats = None
         return det
-    _, name, xy, shape, conf, f = max(cands, key=lambda c: c[0])
+    # vote: each method adds its confidence (weighted by how reliable it is) to its shape
+    # (depth outlines are ragged with sparse depth -> weak vote, never a veto; the silhouette is
+    #  exact for polygons but rounds a cylinder into a 'hexagon' -> slightly lower weight)
+    weight = {'top_face': 1.0, 'silhouette': 0.8, 'blob': 0.5, 'depth': 0.4}
+    votes = {}
+    for name, _, shp, cf, _ in cands:
+        votes[shp] = votes.get(shp, 0.0) + weight.get(name, 0.5) * cf
+    shape = max(votes, key=votes.get)
+    agreement = votes[shape] / max(sum(votes.values()), 1e-9)
+    name, xy, _, conf, f = max((c for c in cands if c[2] == shape),
+                               key=lambda c: weight.get(c[0], 0.5) * c[3])
+    conf = agreement            # share of the (weighted) votes that went to the winning shape
     c = f['centroid']
     det = PegDetection(spec.name, shape, 'geometry', conf, float(c[0]), float(c[1]), z_top, z_top - table_z,
                        outline_yaw(f, shape), 2.0 * float(f['enclosing_radius']), area, bbox, outline_xy=xy,
                        geometry_shape=shape, geometry_confidence=conf)
     det.outline_source = name
     det.height_source = h_src
+    det.votes = [(n, sh, round(float(cf), 2)) for n, _, sh, cf, _ in cands]
     det._feats = f
     return det
 
