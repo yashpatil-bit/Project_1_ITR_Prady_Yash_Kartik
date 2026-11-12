@@ -5,7 +5,7 @@
 FROM ros:humble-ros-base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3-pip python3-pytest ros-humble-control-msgs ros-humble-dynamixel-sdk \
+      python3-pip python3-pytest ros-humble-control-msgs ros-humble-dynamixel-sdk python3-serial \
       libgl1 libglib2.0-0 libusb-1.0-0-dev \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /tmp/requirements.txt

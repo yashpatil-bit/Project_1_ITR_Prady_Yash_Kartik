@@ -51,6 +51,8 @@ class TaskManager:
         self.verify_tol = float(ex.get('verify_tolerance', 0.025))
         self.offsets = [tuple(o) for o in ex.get('search_offsets_m', [[0, 0]])]
         self.gr = self.robot_cfg['gripper']
+        self.release_fraction = float(self.task['place'].get('release_fraction',
+                                                             self.gr.get('release_fraction', 1.0)))
         self.logger = RunLogger(ex.get('log_dir', '~/peg_sorting_logs'), 'autonomy')
         self.abort = False
         self.sockets = {}      # shape -> SocketInfo (cached; holes disappear once filled)
@@ -98,7 +100,7 @@ class TaskManager:
                 if st.gripper == 'open':
                     self.r.gripper(1.0)
                 elif st.gripper == 'release':
-                    self.r.gripper(float(self.gr.get('release_fraction', 0.6)))
+                    self.r.gripper(self.release_fraction)
                 elif st.gripper == 'close':
                     res = self.r.gripper(0.0)
                     if not self.grasp_ok(res):

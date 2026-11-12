@@ -80,3 +80,25 @@ def test_triangle_rotation_hint():
     assert h is not None
     peg.yaw += h
     assert abs(math.degrees(predicted_misalignment(peg, sock))) < 2
+
+
+def test_planar_fit_recovers_rotation_and_shift():
+    import numpy as np
+    from peg_sorting.utils.transforms import fit_planar
+    src = np.array([[0.10, 0.03], [0.05, 0.10], [0.09, -0.03], [0.09, -0.11]])
+    th = math.radians(1.5)
+    R = np.array([[math.cos(th), -math.sin(th)], [math.sin(th), math.cos(th)]])
+    dst = src @ R.T + np.array([-0.006, 0.004])
+    theta, t, res = fit_planar(src, dst)
+    assert abs(theta - th) < 1e-9 and np.allclose(t, [-0.006, 0.004]) and np.abs(res).max() < 1e-12
+
+
+def test_affine_and_similarity_fit_recover_arm_scale_error():
+    import numpy as np
+    from peg_sorting.utils.transforms import fit_affine_2d, fit_similarity_2d
+    cam = np.array([[0.20, 0.14], [0.24, 0.0], [0.08, 0.08], [0.22, -0.12], [0.08, -0.14], [0.16, 0.04]])
+    rob = 0.92 * cam + np.array([0.004, -0.003])          # arm reaches 8% less than the model
+    s, th, t, res = fit_similarity_2d(cam, rob)
+    assert abs(s - 0.92) < 1e-9 and abs(th) < 1e-9 and np.abs(res).max() < 1e-12
+    A, b, res = fit_affine_2d(cam, rob)
+    assert np.allclose(A, 0.92 * np.eye(2)) and np.allclose(b, [0.004, -0.003]) and np.abs(res).max() < 1e-12

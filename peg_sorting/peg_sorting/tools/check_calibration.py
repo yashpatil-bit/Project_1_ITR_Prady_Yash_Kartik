@@ -2,8 +2,8 @@
 
     ros2 run peg_sorting check_calibration
 
-The arm hovers its tool point 1 cm above the top-centre of every detected peg.
-Look from the side: it should be centred on each peg.  If it is consistently
+The gripper opens and hovers with its FINGERTIPS ~2.5 cm above the top-centre of every
+detected peg.  Look from the side and the front: the open fingers should be centred on the peg.  If it is consistently
 off, jog it (teleop keys) until it is centred and press ENTER; the average
 correction over all pegs is written to camera_calib.yaml -> xyz_correction_m.
 ENTER without jogging = "it was fine".  ESC = quit without saving.
@@ -14,9 +14,33 @@ import numpy as np
 import rclpy
 
 from ..control.robot_interface import RobotInterface
+from ..planning.trajectory import cartesian_path, joint_move
 from ..nodes.teleop_keyboard import Teleop
 from ..utils.config import load_yaml, update_yaml
 from ..utils.keyboard import KeyReader
+
+
+def safe_retreat(robot, dz=0.06):
+    """Straight up from wherever the tool is (and WAIT), then back to the observe pose."""
+    q = robot.joints()
+    x, y, z, pitch = robot.kin.fk(q)
+    try:
+        robot.follow(cartesian_path(robot.kin, [(x, y, z), (x, y, z + dz)], pitch, robot.limits, q_seed=q))
+    except ValueError:
+        pass  # cannot go straight up from here; the observe move below starts upward anyway
+    robot.move_joints(robot.robot_cfg['poses']['observe'], 0.6)
+
+
+def safe_approach(robot, q_hi, above, target, pitch):
+    """Joint move to a point well above the peg (only if that swing stays high), then straight down."""
+    traj = joint_move(robot.joints(), q_hi, robot.limits, 0.6)
+    if min(robot.kin.fk(q)[2] for q in traj.q) < target[2] + 0.02:
+        # the swing would come low: rise first at the current pose, then go
+        safe_retreat(robot, dz=0.04)
+        traj = joint_move(robot.joints(), q_hi, robot.limits, 0.6)
+    robot.follow(traj)
+    robot.follow(cartesian_path(robot.kin, [tuple(above), tuple(target)], pitch, robot.limits,
+                                vmax=0.05, q_seed=q_hi))
 
 
 def main(args=None):
@@ -32,16 +56,22 @@ def main(args=None):
         return
     corrections = []
     print(__doc__)
+    tip = float(robot.robot_cfg['kinematics'].get('fingertip_offset', 0.015))  # tool point -> fingertip ends
+    hover = 0.025
+    robot.gripper(1.0)
     with KeyReader() as kr:
         for m in res.pegs:
-            target = np.array([m.top_center.x, m.top_center.y, m.top_center.z + 0.01])
-            q, pitch = robot.kin.ik_search_pitch(*target)
-            if q is None:
+            # tool point high enough that the fingertips stay `hover` above the top, whatever the pitch
+            target = np.array([m.top_center.x, m.top_center.y, m.top_center.z + hover + tip])
+            above = target + np.array([0.0, 0.0, 0.06])
+            q_hi, pitch = robot.kin.ik_search_pitch(*above)
+            if q_hi is None or robot.kin.ik(*target, pitch) is None:
                 print('%s peg out of reach, skipped' % m.color)
                 continue
-            print('\n%s %s: hovering 1 cm above (%.3f, %.3f, %.3f), pitch %.0f deg. Centre it, ENTER.' % (
-                m.color, m.shape, *target, math.degrees(pitch)))
-            robot.move_joints(q, 0.6)
+            print('\n%s %s (top at %.0f mm): fingertips ~%.0f mm above it, pitch %.0f deg. '
+                  'Centre it (w/a/s/d, never f), then ENTER.' % (
+                      m.color, m.shape, m.top_center.z * 1e3, hover * 1e3, math.degrees(pitch)))
+            safe_approach(robot, q_hi, above, target, pitch)
             tele.sync_target()
             done = False
             while rclpy.ok() and not done:
@@ -51,11 +81,13 @@ def main(args=None):
                 if k in ('\n', '\r'):
                     x, y, z, _ = robot.kin.fk(robot.joints())
                     corr = np.array([x, y, z]) - target
+                    corr[2] = 0.0   # only horizontal offsets are judged here
                     corrections.append(corr)
                     print('   correction %s mm' % np.round(corr * 1e3, 1))
-                    tele.jog(dz=0.05)
+                    safe_retreat(robot)
                     done = True
                 elif k == 'ESC':
+                    safe_retreat(robot)
                     robot.shutdown()
                     return
                 else:

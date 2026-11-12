@@ -4,6 +4,8 @@
 # sim_scene_aligned.yaml has the board where `suggest_board_pose` puts it.  It lets you
 # run the complete software stack (vision -> planning -> control) on a laptop
 # without the robot or the camera.  Units: metres / degrees.
+gripper_max_opening: 0.06    # fully open finger gap (m), like the real gripper
+
 camera:
   width: 848
   height: 480

@@ -62,6 +62,11 @@ def detect_board_and_sockets(color, height_map, K, T_base_cam, color_cfg, vcfg, 
     hsv = cv2.cvtColor(cv2.GaussianBlur(bev_color, (5, 5), 0), cv2.COLOR_BGR2HSV)
     board_mask = hsv_mask(hsv, color_cfg.board)
     tall = (bev_height > board_top + float(bc['occluder_height'])).astype(np.uint8) * 255
+    # grow the tall mask a little: a peg's edges (and its shadow-side depth holes) must
+    # never count as board, otherwise a wood-coloured peg next to the board merges into it
+    grow = int(max(3, round(0.006 / bev.res))) | 1
+    tall = cv2.dilate(tall, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (grow, grow)))
+    board_mask = cv2.bitwise_and(board_mask, cv2.bitwise_not(tall))
     board_mask = clean_mask(board_mask, 3, 3)
     board_or_tall = cv2.bitwise_or(board_mask, tall)
 
@@ -69,6 +74,10 @@ def detect_board_and_sockets(color, height_map, K, T_base_cam, color_cfg, vcfg, 
     close = int(max(3, round(float(bc['close_m']) * px))) | 1
     solid = cv2.morphologyEx(board_mask, cv2.MORPH_CLOSE,
                              cv2.getStructuringElement(cv2.MORPH_RECT, (close, close)))
+    # cut thin attachments (e.g. the rim of a wood-coloured peg standing against the board):
+    # the board itself is ~10 cm wide, so an opening of ~1.2 cm only removes things stuck to it
+    cut = int(max(3, round(float(bc.get('open_m', 0.012)) * px))) | 1
+    solid = cv2.morphologyEx(solid, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (cut, cut)))
     contours, _ = cv2.findContours(solid, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return BoardDetection(False), [], debug

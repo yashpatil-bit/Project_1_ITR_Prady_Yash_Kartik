@@ -23,7 +23,8 @@ class SceneDetector:
     def detect(self, frame, with_sockets=True):
         pts = points_in_base(frame.depth, frame.K, self.T)
         hsv = to_hsv(frame.color, int(self.vcfg['pegs'].get('blur_px', 3)))
-        pegs = detect_pegs(hsv, pts, self.colors, self.vcfg, self.table_z, self.yolo, frame.color)
+        pegs = detect_pegs(hsv, pts, self.colors, self.vcfg, self.table_z, self.yolo, frame.color,
+                           frame.K, self.T)
         board, sockets, dbg = BoardDetection(False), [], {}
         if with_sockets:
             board, sockets, dbg = detect_board_and_sockets(frame.color, pts[..., 2], frame.K, self.T,
@@ -79,7 +80,8 @@ class SceneDetector:
                 cv2.polylines(img, [uv], True, (255, 255, 255), 1)
             c = project([[p.x, p.y, p.z_top]], K, T)[0].astype(int)
             cv2.circle(img, (int(c[0]), int(c[1])), 4, (0, 0, 255), -1)
-            cv2.putText(img, '%s %s' % (p.color, p.shape), (x, max(12, y - 20)),
+            star = '*' if p.shape_source == 'color_prior' else ''   # * = decided by the colour rule
+            cv2.putText(img, '%s %s%s' % (p.color, p.shape, star), (x, max(12, y - 20)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 2)
             cv2.putText(img, '(%.0f,%.0f,%.0f)mm' % (p.x * 1e3, p.y * 1e3, p.z_top * 1e3),
                         (x, max(24, y - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, col, 1)
@@ -142,17 +144,28 @@ def _merge_boards(boards):
 
 
 def resolve_duplicate_shapes(pegs, colors_cfg):
-    """If two pegs claim the same shape, give the less confident one its colour prior."""
+    """If several pegs claim the same shape, the one whose colour prior IS that shape keeps it
+    (otherwise the most confident one); every other peg gets its colour prior
+    (yellow=triangle, blue=square, ... from colors.yaml)."""
     cc = ColorConfig.from_dict(colors_cfg)
-    by_shape = defaultdict(list)
-    for p in pegs:
-        by_shape[p.shape].append(p)
-    for shape, lst in by_shape.items():
-        if len(lst) <= 1:
-            continue
-        lst.sort(key=lambda p: -p.shape_confidence)
-        for p in lst[1:]:
-            spec = cc.by_name(p.color)
-            if spec and spec.expected_shape:
-                p.shape, p.shape_source = spec.expected_shape, 'color_prior'
+
+    def prior(p):
+        spec = cc.by_name(p.color)
+        return spec.expected_shape if spec else ''
+    for _ in range(3):  # re-run: a reassignment can create a new duplicate
+        by_shape = defaultdict(list)
+        for p in pegs:
+            by_shape[p.shape].append(p)
+        changed = False
+        for shape, lst in by_shape.items():
+            if len(lst) <= 1:
+                continue
+            owners = [p for p in lst if prior(p) == shape]
+            keep = owners[0] if owners else max(lst, key=lambda p: p.shape_confidence)
+            for p in lst:
+                if p is not keep and prior(p) and prior(p) != p.shape:
+                    p.shape, p.shape_source = prior(p), 'color_prior'
+                    changed = True
+        if not changed:
+            break
     return pegs

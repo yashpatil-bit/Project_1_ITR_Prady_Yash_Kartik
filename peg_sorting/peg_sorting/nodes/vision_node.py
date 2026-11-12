@@ -28,7 +28,7 @@ from peg_sorting_interfaces.srv import GetScene
 from ..planning.kinematics import ArmGeometry, ManipulatorXKinematics
 from ..planning.pick_place_planner import PegInfo, SocketInfo, predicted_misalignment
 from ..utils.config import load_yaml
-from ..utils.transforms import T_from_dict
+from ..utils.transforms import T_from_dict, planar_correction_from_config
 from ..vision.camera import open_camera
 from ..vision.scene import SceneDetector, resolve_duplicate_shapes
 
@@ -53,6 +53,11 @@ class VisionNode(Node):
         self.vcfg = load_yaml('vision.yaml')
         self.colors_cfg = load_yaml('colors.yaml')
         calib = load_yaml('camera_calib.yaml')
+        # camera -> robot x-y correction measured by calibrate_workspace (absorbs arm/camera errors)
+        self.corr_A, self.corr_b = planar_correction_from_config(calib)
+        if not np.allclose(self.corr_A, np.eye(2)) or np.any(self.corr_b):
+            self.get_logger().info('using planar correction A=%s b=%s mm' % (
+                np.round(self.corr_A, 4).tolist(), np.round(self.corr_b * 1e3, 1).tolist()))
         self.table_z = float(self.vcfg.get('table_z', 0.0))
         self.grasp_model = (load_yaml('task.yaml').get('alignment') or {}).get('grasp_model', 'squeeze')
 
@@ -138,9 +143,12 @@ class VisionNode(Node):
             math.hypot(p.x - x, p.y - y) < 0.012 and p.z_bottom + p.height - 0.06 < z < p.z_bottom + p.height
             for p in self.sim.pegs)
         self.blocked_pub.publish(Float64(data=0.35 if between else -1.0))
+        held_pegs = [p for p in self.sim.pegs if p.held]
+        # the fingers must open wider than the peg to let go of it (real gripper opens ~6 cm)
+        opening = g * float(self.sim.cfg.get('gripper_max_opening', 0.06))
         if g < 0.45 and between:
             self.sim.update_gripper(tool, q[0], closed=True)
-        elif g > 0.5 and held:
+        elif g > 0.5 and held and all(opening > 0.8 * p.size for p in held_pegs):
             self.sim.update_gripper(tool, q[0], closed=False)
         else:
             self.sim.update_gripper(tool, q[0], closed=held)
@@ -156,6 +164,23 @@ class VisionNode(Node):
             return res
         pegs, board, sockets, _ = self.detector.detect_averaged(frames, with_sockets=req.detect_sockets)
         pegs = resolve_duplicate_shapes(pegs, self.colors_cfg)
+        # debug image in camera coordinates (before the robot-frame correction below)
+        self.latest_debug = self.detector.draw(frames[-1], pegs, board, sockets, self._misalign(pegs, sockets))
+        self._publish_debug(self.latest_debug)
+        if self.mock:
+            A, b = np.eye(2), np.zeros(2)
+        else:
+            A, b = self.corr_A, self.corr_b
+
+        def fix(x, y):
+            v = A @ np.array([x, y]) + b
+            return float(v[0]), float(v[1])
+        for p in pegs:
+            p.x, p.y = fix(p.x, p.y)
+        for so in sockets:
+            so.x, so.y = fix(so.x, so.y)
+        if board.found:
+            board.x, board.y = fix(board.x, board.y)
         for p in pegs:
             m = Peg()
             m.color, m.shape, m.shape_source = p.color, p.shape, p.shape_source
@@ -176,8 +201,6 @@ class VisionNode(Node):
         res.message = '%d pegs, %d sockets from %d frames in %.2fs' % (len(pegs), len(sockets), len(frames),
                                                                       time.time() - t0)
         self.get_logger().info(res.message)
-        self.latest_debug = self.detector.draw(frames[-1], pegs, board, sockets, self._misalign(pegs, sockets))
-        self._publish_debug(self.latest_debug)
         return res
 
     def _misalign(self, pegs, sockets):
@@ -198,6 +221,7 @@ class VisionNode(Node):
             return
         fr = self.frames[-1]
         pegs, board, sockets, _ = self.detector.detect(fr)
+        pegs = resolve_duplicate_shapes(pegs, self.colors_cfg)   # show what the robot would use
         self.latest_debug = self.detector.draw(fr, pegs, board, sockets, self._misalign(pegs, sockets))
         self._publish_debug(self.latest_debug)
 

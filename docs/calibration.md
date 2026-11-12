@@ -67,6 +67,23 @@ including points near the board. At each spot:
 ENTER (camera measures the peg) → jog over the peg, descend so the fingers sit where they would grasp → `c` → ENTER.
 Residual RMS should be < 3 mm. It writes the transform and resets `xyz_correction_m`.
 
+## 3b. Arm calibration by touching the plate (do this BEFORE 6C)
+
+`ros2 run peg_sorting calibrate_arm` (driver running). The closed gripper goes to 10 poses (different reach and
+angle); at each you lower it with `f` (2 mm steps) until the fingertips just touch the plate and press ENTER.
+It fits the joint 2/3/4 zero offsets, the fingertip length and the plate height so that fingertip heights are
+right everywhere (our arm grasped too low and reached ~8 % short with the stock model). `y` saves them to
+robot.yaml (`joint_offsets_rad`, `tool_length`, `base_z_offset`); restart the driver and every other node.
+
+## 6C. Workspace calibration (recommended - the robot measures itself against the camera)
+
+`ros2 run peg_sorting calibrate_workspace` (driver + vision running). Remove the board and all pegs but the
+green one. The arm opens at a hand-over spot; stand the green peg between the fingers and press ENTER. The robot
+then places the peg at ~8 spots and the camera measures each one. A 2-D affine map "camera -> robot" is fitted and
+saved as `planar_correction`; it absorbs arm model errors (on our arm the real reach was ~8 % shorter than the
+standard Manipulator X model) as well as camera errors. Residual RMS must be < 6 mm or nothing is saved.
+Restart the vision node afterwards, then put the board back.
+
 ## 7. Fine offset
 
 `ros2 run peg_sorting check_calibration`: the arm hovers 1 cm above each detected peg; jog to the true centre if needed

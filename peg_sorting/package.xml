@@ -20,6 +20,7 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>peg_sorting_interfaces</exec_depend>
   <exec_depend>dynamixel_sdk</exec_depend>
+  <exec_depend>python3-serial</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
 
