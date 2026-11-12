@@ -108,3 +108,35 @@ def fit_planar(src_xy, dst_xy):
     t = cd - R @ cs
     res = (s @ R.T + t) - d
     return theta, t, res
+
+
+def fit_affine_2d(src_xy, dst_xy):
+    """Least-squares 2-D affine map dst ~= A @ src + b.  Returns (A (2x2), b (2,), residuals)."""
+    s = np.asarray(src_xy, float)
+    d = np.asarray(dst_xy, float)
+    X = np.column_stack([s, np.ones(len(s))])
+    M, _, _, _ = np.linalg.lstsq(X, d, rcond=None)
+    A, b = M[:2].T, M[2]
+    return A, b, (s @ A.T + b) - d
+
+
+def fit_similarity_2d(src_xy, dst_xy):
+    """dst ~= scale * R(theta) @ src + t.  Returns (scale, theta, t, residuals)."""
+    s = np.asarray(src_xy, float)
+    d = np.asarray(dst_xy, float)
+    cs, cd = s.mean(axis=0), d.mean(axis=0)
+    a, c = s - cs, d - cd
+    H = a.T @ c
+    theta = math.atan2(H[0, 1] - H[1, 0], H[0, 0] + H[1, 1])
+    R = np.array([[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]])
+    scale = float(np.sum((a @ R.T) * c) / max(np.sum(a * a), 1e-12))
+    t = cd - scale * R @ cs
+    return scale, theta, t, (scale * s @ R.T + t) - d
+
+
+def planar_correction_from_config(calib):
+    """(A, b) of the camera -> robot x-y correction stored by calibrate_workspace (identity if none)."""
+    pc = (calib or {}).get('planar_correction') or {}
+    A = np.array(pc.get('A', [[1.0, 0.0], [0.0, 1.0]]), dtype=float)
+    b = np.array(pc.get('b', [0.0, 0.0]), dtype=float)
+    return A, b

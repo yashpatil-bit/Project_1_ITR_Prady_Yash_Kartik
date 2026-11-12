@@ -38,6 +38,7 @@ setup(
             'train_yolo = peg_sorting.tools.train_yolo:main',
             'evaluate_timing = peg_sorting.tools.evaluate_timing:main',
             'suggest_board_pose = peg_sorting.tools.suggest_board_pose:main',
+            'calibrate_workspace = peg_sorting.tools.calibrate_workspace:main',
         ],
     },
 )
