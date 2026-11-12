@@ -59,13 +59,20 @@ def _plain(v):
 
 def save_yaml(name, data, header=None):
     """Write ``data`` to the config file, following symlinks so the source
-    file is updated when the workspace was built with --symlink-install."""
+    file is updated when the workspace was built with --symlink-install.
+    Atomic: the YAML is fully written to a temporary file first and only then
+    renamed over the old file, so a crash can never leave a half-written config."""
     path = os.path.realpath(config_path(name))
-    with open(path, 'w') as f:
-        if header:
-            for line in header.strip().splitlines():
-                f.write('# ' + line + '\n')
-        yaml.safe_dump(_plain(data), f, sort_keys=False, default_flow_style=None)
+    text = ''
+    if header:
+        text += ''.join('# ' + line + '\n' for line in header.strip().splitlines())
+    text += yaml.safe_dump(_plain(data), sort_keys=False, default_flow_style=None)  # may raise: file untouched
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as f:
+        f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
     return path
 
 
