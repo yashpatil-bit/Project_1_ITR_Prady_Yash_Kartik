@@ -121,9 +121,24 @@ def detect_board_and_sockets(color, height_map, K, T_base_cam, color_cfg, vcfg, 
         solidity = cv2.contourArea(hc) / max(cv2.contourArea(hull_h), 1e-9)
         if solidity < float(bc['min_solidity']):
             continue
+        # real holes are compact (not thin slivers along the board edge)
+        (_, _), (rw, rh), _ = cv2.minAreaRect(hc)
+        if min(rw, rh) < 1e-6 or max(rw, rh) / min(rw, rh) > float(bc.get('max_hole_aspect', 1.8)):
+            continue
         xy = bev.to_base(hc.reshape(-1, 2).astype(float))
         shape, conf, f = classify_outline(xy)
         c = f['centroid']
+        # ... and lie on the board's centre line (the holes are in a row down the middle of the board)
+        ux, uy = math.cos(board_yaw), math.sin(board_yaw)
+        off = abs(-(c[0] - board.x) * uy + (c[1] - board.y) * ux)
+        if off > float(bc.get('max_hole_offset_ratio', 0.3)) * board.width:
+            continue
         sockets.append(SocketDetection(shape, conf, float(c[0]), float(c[1]), board_top,
                                        outline_yaw(f, shape), 2.0 * float(f['enclosing_radius']), xy))
+    best = {}
+    for so in sockets:
+        off = abs(-(so.x - board.x) * math.sin(board_yaw) + (so.y - board.y) * math.cos(board_yaw))
+        if so.shape not in best or off < best[so.shape][0]:
+            best[so.shape] = (off, so)
+    sockets = [v[1] for v in best.values()]
     return board, sockets, debug
