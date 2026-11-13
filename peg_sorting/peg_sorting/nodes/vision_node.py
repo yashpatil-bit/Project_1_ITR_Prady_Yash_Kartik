@@ -58,6 +58,12 @@ class VisionNode(Node):
         if not np.allclose(self.corr_A, np.eye(2)) or np.any(self.corr_b):
             self.get_logger().info('using planar correction A=%s b=%s mm' % (
                 np.round(self.corr_A, 4).tolist(), np.round(self.corr_b * 1e3, 1).tolist()))
+        # per-colour peg offsets measured by check_calibration --per-color (pegs only, not sockets)
+        self.color_offset = {k: np.asarray(v, dtype=float)[:2]
+                             for k, v in (calib.get('color_offset_m') or {}).items() if v}
+        if self.color_offset:
+            self.get_logger().info('using per-colour peg offsets (mm): %s' % {
+                k: np.round(v * 1e3, 1).tolist() for k, v in self.color_offset.items()})
         self.table_z = float(self.vcfg.get('table_z', 0.0))
         self.grasp_model = (load_yaml('task.yaml').get('alignment') or {}).get('grasp_model', 'squeeze')
 
@@ -177,6 +183,9 @@ class VisionNode(Node):
             return float(v[0]), float(v[1])
         for p in pegs:
             p.x, p.y = fix(p.x, p.y)
+            off = None if self.mock else self.color_offset.get(p.color)
+            if off is not None:
+                p.x, p.y = p.x + float(off[0]), p.y + float(off[1])
         for so in sockets:
             so.x, so.y = fix(so.x, so.y)
         if board.found:

@@ -7,8 +7,19 @@ detected peg.  Look from the side and the front: the open fingers should be cent
 off, jog it (teleop keys) until it is centred and press ENTER; the average
 correction over all pegs is written to camera_calib.yaml -> xyz_correction_m.
 ENTER without jogging = "it was fine".  ESC = quit without saving.
+
+    ros2 run peg_sorting check_calibration --per-color             (all pegs)
+    ros2 run peg_sorting check_calibration --per-color --color blue
+
+--per-color: every peg's correction is saved for THAT colour only (camera_calib.yaml ->
+color_offset_m).  Use it when one peg is off and the others are fine: the camera sees
+each colour/shape a bit differently (e.g. the blue square was 20 mm off while the
+workspace calibration was done with the green cylinder).  Do it with the pegs standing
+roughly where they will be during the run.
 """
+import argparse
 import math
+import sys
 
 import numpy as np
 import rclpy
@@ -44,23 +55,29 @@ def safe_approach(robot, q_hi, above, target, pitch):
 
 
 def main(args=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--per-color', action='store_true', help='save a separate correction for each colour')
+    ap.add_argument('--color', default=None, help='only this peg colour (e.g. blue)')
+    opt, _ = ap.parse_known_args(sys.argv[1:])
     rclpy.init(args=args)
     robot = RobotInterface('check_calibration')
     robot.wait_ready()
     tele = Teleop(robot, use_vision=True)
     robot.move_joints(robot.robot_cfg['poses']['observe'], 0.7)
     res = robot.get_scene(10, False)
-    if res is None or not res.pegs:
-        print('no pegs detected')
+    pegs = [m for m in (res.pegs if res else []) if opt.color in (None, m.color)]
+    if not pegs:
+        print('no %speg detected' % ('%s ' % opt.color if opt.color else ''))
         robot.shutdown()
         return
     corrections = []
+    per_color = {}
     print(__doc__)
     tip = float(robot.robot_cfg['kinematics'].get('fingertip_offset', 0.015))  # tool point -> fingertip ends
     hover = 0.025
     robot.gripper(1.0)
     with KeyReader() as kr:
-        for m in res.pegs:
+        for m in pegs:
             # tool point high enough that the fingertips stay `hover` above the top, whatever the pitch
             target = np.array([m.top_center.x, m.top_center.y, m.top_center.z + hover + tip])
             above = target + np.array([0.0, 0.0, 0.06])
@@ -83,6 +100,7 @@ def main(args=None):
                     corr = np.array([x, y, z]) - target
                     corr[2] = 0.0   # only horizontal offsets are judged here
                     corrections.append(corr)
+                    per_color[m.color] = corr
                     print('   correction %s mm' % np.round(corr * 1e3, 1))
                     safe_retreat(robot)
                     done = True
@@ -92,7 +110,17 @@ def main(args=None):
                     return
                 else:
                     tele.handle(k)
-    if corrections:
+    if per_color and opt.per_color:
+        old = load_yaml('camera_calib.yaml').get('color_offset_m') or {}
+        new = {}
+        for color, corr in per_color.items():
+            v = np.array(old.get(color) or [0.0, 0.0], dtype=float) + corr[:2]
+            new[color] = [round(float(x), 4) for x in v]
+            print('%s: correction %s mm -> color_offset_m.%s = %s mm' % (
+                color, np.round(corr[:2] * 1e3, 1).tolist(), color, np.round(v * 1e3, 1).tolist()))
+        p = update_yaml('camera_calib.yaml', {'color_offset_m': new})
+        print('saved %s - restart the vision node to use it.' % p)
+    elif corrections:
         c = np.mean(corrections, axis=0)
         old = np.array(load_yaml('camera_calib.yaml').get('xyz_correction_m') or [0, 0, 0], dtype=float)
         new = old + c

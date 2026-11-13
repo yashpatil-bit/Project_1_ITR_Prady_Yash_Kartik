@@ -180,6 +180,7 @@ def main():
             'T_base_cam': d,
             # fine corrections belong to the OLD camera pose - reset them (redo calibrate_workspace)
             'xyz_correction_m': [0.0, 0.0, 0.0],
+            'color_offset_m': None,  # (an empty dict would be merged, not reset)
             'planar_correction': {'A': [[1.0, 0.0], [0.0, 1.0]], 'b': [0.0, 0.0],
                                   'note': 'reset by calibrate_aruco - run calibrate_workspace'},
             'aruco': {'dictionary': info['dictionary'], 'marker_id': info['marker_id'],
