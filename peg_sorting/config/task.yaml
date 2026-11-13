@@ -15,7 +15,8 @@ place:
   release_fraction: 1.0      # gripper opening when letting go (1.0 = fully open). 0.6 was narrower than a 4 cm peg!
   retreat_height: 0.05       # tool goes this far above the peg top after release
   socket_offset_m:           # extra shift of the place point per socket, robot frame [x, y] in metres
-    square: [0.0, -0.003]    # lab: the square was put down a few mm too far +y
+    square: [0.0, -0.003]    # lab: the blue square was put down a few mm too far +y
+    triangle: [0.0, -0.003]  # lab: the yellow triangle too
 
 transport:
   clearance_above_board: 0.025  # carried peg's bottom above the board top
