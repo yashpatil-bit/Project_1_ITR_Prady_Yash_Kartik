@@ -27,6 +27,8 @@ alignment:
   # Manipulator X has no wrist roll: the gripper yaw is always joint1.  See README "Orientation".
   grasp_model: squeeze       # squeeze: jaws turn the peg flat-to-jaw | hold: peg does not turn in the gripper
   tolerance_deg: 6           # warn if the predicted peg/socket yaw error is larger
+  tolerance_deg_by_shape:    # tighter for the square: it sat on its hole at 6 deg in the lab
+    square: 4
   policy: warn               # warn | skip  (skip = do not try sockets that cannot align)
 
 execution:
@@ -35,6 +37,7 @@ execution:
   observe_num_frames: 5
   verify: true
   verify_tolerance: 0.025    # peg must end within this distance of the socket centre
+  lean_tolerance: 0.015      # top further than this off the centre = leaning in the hole (failed, not re-grabbed)
   search_offsets_m: [[0.0, 0.0], [0.004, 0.0], [-0.004, 0.0], [0.0, 0.004], [0.0, -0.004]]
   log_dir: ~/peg_sorting_logs
 

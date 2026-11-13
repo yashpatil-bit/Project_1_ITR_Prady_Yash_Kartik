@@ -17,7 +17,7 @@ import rclpy
 from control_msgs.action import FollowJointTrajectory
 
 from ..control.robot_interface import EmergencyStop, RobotInterface
-from ..planning.pick_place_planner import (PegInfo, PickPlacePlanner, PlanningError, SocketInfo,
+from ..planning.pick_place_planner import (PegInfo, PickPlacePlanner, PlanningError, SocketInfo, jaw_blockers,
                                            peg_rotation_hint, predicted_misalignment)
 from ..utils.config import load_yaml
 from ..utils.keyboard import KeyReader
@@ -59,6 +59,12 @@ class TaskManager:
         self.placed = {}       # color -> SocketInfo
         self.true_height = {}  # color -> peg height measured standing on the table
         self.table_z = float(self.vision_cfg.get('table_z', 0.0))
+
+    def yaw_tol(self, shape):
+        """Allowed predicted yaw error (deg).  The square hole is the tightest: in the lab it
+        went in at 7.6 deg once but sat on the hole at 6 deg + 6 mm, so it gets its own value."""
+        al = self.task['alignment']
+        return float(al.get('tolerance_deg_by_shape', {}).get(shape, al['tolerance_deg']))
 
     def log(self, msg):
         self.r.log.info(msg)
@@ -147,7 +153,7 @@ class TaskManager:
             peg, sock = pairs[0]
             policy = self.task['alignment'].get('policy', 'warn')
             mis = math.degrees(predicted_misalignment(peg, sock, self.planner.grasp_model))
-            if policy == 'skip' and abs(mis) > float(self.task['alignment']['tolerance_deg']):
+            if policy == 'skip' and abs(mis) > self.yaw_tol(peg.shape):
                 self.log('skipping %s: predicted misalignment %.0f deg' % (peg.color, mis))
                 failures[peg.color] = self.max_retries + 1
                 continue
@@ -174,12 +180,12 @@ class TaskManager:
             else:
                 failures[peg.color] = failures.get(peg.color, 0) + 1
                 self.r.log.warn('FAILED %s: %s (attempt %d)' % (peg.color, reason, attempt))
-                if 'resting ON the board' in reason:
+                if 'resting ON the board' in reason or 'leaning' in reason:
                     # A peg sitting on / leaning in its socket must not be grabbed again: the gripper
                     # comes down on a tilted peg next to the others and knocks it over (lab video).
                     why = ('predicted yaw error %.0f deg cannot be fixed by this arm - turn the board' % mis
-                           if abs(mis) > float(self.task['alignment']['tolerance_deg']) else
-                           'it landed a few mm off the hole')
+                           if abs(mis) > self.yaw_tol(peg.shape) else
+                           'it is leaning in the hole' if 'leaning' in reason else 'it landed a few mm off the hole')
                     self.r.log.warn('%s: resting on its socket (%s) - not retrying it, moving on.' % (peg.color, why))
                     failures[peg.color] = self.max_retries + 1
 
@@ -248,10 +254,16 @@ class TaskManager:
         thickness = float(self.vision_cfg['board']['thickness'])
         expected_top = self.table_z + self.true_height.get(peg.color, peg.height)
         on_board = m.z_top > expected_top + 0.5 * thickness
-        ok = d < self.verify_tol and not on_board
+        # Pegs that went in straight measured 0-4 mm from the socket centre.  A peg whose
+        # bottom is in the hole but leans over has its top well off the centre.
+        lean_tol = float(self.task['execution'].get('lean_tolerance', 0.015))
+        leaning = not on_board and lean_tol <= d < self.verify_tol
+        ok = d < self.verify_tol and not on_board and not leaning
         info = 'dist %.0fmm, top %+.1fmm' % (d * 1e3, (m.z_top - expected_top) * 1e3)
         if on_board:
             info += ' -> resting ON the board (not inserted; yaw misaligned?)'
+        elif leaning:
+            info += ' -> leaning in its socket (top > %.0f mm off the centre)' % (lean_tol * 1e3)
         return ok, info, pegs_now
 
     def print_setup(self, pegs):
@@ -261,7 +273,6 @@ class TaskManager:
                 p.color, p.shape, p.x, p.y, p.z_top, math.degrees(p.yaw)))
         for s in self.sockets.values():
             print('  socket %-8s at (%6.3f, %6.3f)  yaw %5.1f deg' % (s.shape, s.x, s.y, math.degrees(s.yaw)))
-        tol = float(self.task['alignment']['tolerance_deg'])
         for p in pegs:
             s = self.sockets.get(p.shape)
             if s is None:
@@ -269,13 +280,24 @@ class TaskManager:
                 continue
             mis = math.degrees(predicted_misalignment(p, s, self.planner.grasp_model))
             hint = peg_rotation_hint(p, s, self.planner.grasp_model)
+            tol = self.yaw_tol(s.shape)
             if abs(mis) <= tol:
                 flag = 'OK'
             elif hint is not None:
                 flag = 'WARNING: turn this peg by %+.0f deg (CCW seen from above) before starting' % math.degrees(hint)
             else:
                 flag = 'WARNING: 4-DOF arm cannot fix this - move/rotate the board (suggest_board_pose)'
-            print('  %-7s -> %-8s predicted yaw error %+5.1f deg  %s' % (p.color, s.shape, mis, flag))
+            print('  %-7s -> %-8s predicted yaw error %+5.1f deg (max %.0f)  %s'
+                  % (p.color, s.shape, mis, tol, flag))
+        crowded = []
+        for p in pegs:
+            for o, gap in jaw_blockers(p, [q for q in pegs if q.color != p.color]):
+                crowded.append('  !! %s: the open jaw comes down where %s stands (only %.0f mm gap sideways). '
+                               'The jaw will push %s over.' % (p.color, o.color, max(gap, 0.0) * 1e3, p.color))
+        if crowded:
+            print('\n'.join(crowded))
+            print('  !! FIX: seen from the robot, keep >= 3 cm free on BOTH sides of every peg (centres >= 8 cm apart\n'
+                  '  !!      side by side), or put the neighbour >= 4 cm in front of / behind it.  Then restart.')
         print('=======================================\n')
 
 

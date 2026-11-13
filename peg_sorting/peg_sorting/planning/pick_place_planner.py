@@ -307,3 +307,26 @@ class PickPlacePlanner:
         """Straight up from wherever the tool is (used after failures)."""
         x, y, z, pitch = self.kin.fk(q_now)
         return cartesian_path(self.kin, [(x, y, z), (x, y, z + dz)], pitch, self.limits, q_seed=q_now)
+
+
+# Open gripper seen from above: the jaws open sideways (perpendicular to the line from the
+# robot base to the peg), inner faces 3 cm from the peg centre, each jaw ~1.5 cm thick and
+# ~2.5 cm wide.  A neighbour standing where a jaw comes down gets hit / the peg gets pushed
+# over while the jaws close (lab video: yellow tilted by the jaw squeezing in next to blue).
+JAW_OUTER = 0.045        # jaw outer face from the peg centre, sideways
+JAW_HALF_WIDTH = 0.0125  # half the jaw width, along the robot->peg line
+JAW_MARGIN = 0.005
+
+
+def jaw_blockers(peg, others):
+    """[(other, sideways_gap_m)] for pegs standing in the path of peg's open jaws."""
+    b = math.atan2(peg.y, peg.x)
+    ur, ut = (math.cos(b), math.sin(b)), (-math.sin(b), math.cos(b))
+    out = []
+    for o in others:
+        dx, dy = o.x - peg.x, o.y - peg.y
+        dr, dt = dx * ur[0] + dy * ur[1], dx * ut[0] + dy * ut[1]
+        r_o = 0.5 * (o.width or 0.04)
+        if abs(dr) < JAW_HALF_WIDTH + r_o + JAW_MARGIN and abs(dt) < JAW_OUTER + r_o + JAW_MARGIN:
+            out.append((o, abs(dt) - r_o - 0.5 * (peg.width or 0.04)))
+    return out

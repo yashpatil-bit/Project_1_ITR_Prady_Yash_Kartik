@@ -21,6 +21,14 @@
 ./launch/run_autonomy.sh            # or: ros2 run peg_sorting task_manager (if the bringup is already running)
 ```
 - Read the scene report aloud: 4 pegs, 4 sockets, shapes, predicted yaw errors.
+- Before ENTER, fix every `!!` / `WARNING` line in the scene report, then restart the task manager:
+  - **Peg spacing.** Seen from the robot, each peg needs about 3 cm of free space on both sides,
+    because the open jaws come down there. Keep side-by-side pegs at least 8 cm apart centre to
+    centre, or stagger them at least 4 cm front/back. At 5.8 cm the jaw pushed the yellow peg over
+    in the lab.
+  - **Square yaw.** The square must show a yaw error of 4 degrees or less. Nudge the board
+    (turn and slide it) while watching the numbers next to the sockets in the vision window, or
+    run `ros2 run peg_sorting suggest_board_pose`.
 - ENTER starts the timer. Hands off; SPACE if anything looks wrong.
 - At the end the summary prints pegs placed, time and failures. Show `python3 scripts/evaluate_timing.py --last 1`.
 
