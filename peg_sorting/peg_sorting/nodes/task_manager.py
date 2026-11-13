@@ -14,6 +14,7 @@ import threading
 import time
 
 import rclpy
+from rclpy.signals import SignalHandlerOptions
 from control_msgs.action import FollowJointTrajectory
 
 from ..control.robot_interface import EmergencyStop, RobotInterface
@@ -128,6 +129,18 @@ class TaskManager:
             self.log('emergency stop is active - release it (publish false on /emergency_stop) and restart')
             return
         self.log('moving to observe pose ...')
+        res = r.move_joints(self.robot_cfg['poses']['observe'], self.speed)
+        if not res and 'rejected' in res.message:
+            # the driver still holds an emergency stop (SPACE / Ctrl-C of an earlier run)
+            print('\n>>> The arm driver is in EMERGENCY STOP (from an earlier SPACE or Ctrl-C).\n'
+                  '>>> Check the arm is clear, then press ENTER to release it (Ctrl-C = quit) <<<')
+            sys.stdin.readline()
+            r.release_estop()
+            time.sleep(0.5)
+            res = r.move_joints(self.robot_cfg['poses']['observe'], self.speed)
+            if not res:
+                self.log('the driver still refuses to move (%s) - restart the driver' % res.message)
+                return
         pegs = self.observe(with_sockets=True)
         self.true_height = {p.color: p.height for p in pegs}
         self.print_setup(pegs)
@@ -159,6 +172,10 @@ class TaskManager:
                 continue
             attempt = failures.get(peg.color, 0) + 1
             ok, reason, plan = self.pick_and_place(peg, sock, pegs)
+            if not ok and 'goal rejected' in reason:
+                self.r.log.error('the driver rejected the move (emergency stop on?) - stopping the run. Release with:'
+                                 ' ros2 topic pub --once /emergency_stop std_msgs/Bool "data: false"')
+                break
             verified = ''
             if ok and self.verify:
                 pegs_now = self.observe(with_sockets=False)
@@ -284,7 +301,9 @@ class TaskManager:
             if abs(mis) <= tol:
                 flag = 'OK'
             elif hint is not None:
-                flag = 'WARNING: turn this peg by %+.0f deg (CCW seen from above) before starting' % math.degrees(hint)
+                d = math.degrees(hint)
+                flag = 'WARNING: turn this peg %.0f deg %s (seen from above) before starting' % (
+                    abs(d), 'anticlockwise' if d > 0 else 'clockwise')
             else:
                 flag = 'WARNING: 4-DOF arm cannot fix this - move/rotate the board (suggest_board_pose)'
             print('  %-7s -> %-8s predicted yaw error %+5.1f deg (max %.0f)  %s'
@@ -315,7 +334,8 @@ class TaskManager:
 
 
 def main(args=None):
-    rclpy.init(args=args)
+    # Python's own Ctrl-C handling: rclpy's handler would shut ROS down before we can stop the arm
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
     robot = RobotInterface('task_manager')
     n = robot.node
     params = {}
@@ -361,8 +381,16 @@ def main(args=None):
     except EmergencyStop:
         robot.log.error('stopped by emergency stop')
     except KeyboardInterrupt:
-        robot.emergency_stop()
-        robot.log.error('Ctrl-C: emergency stop sent')
+        # stop the arm where it is, but do not leave the driver latched in emergency stop:
+        # a latched stop made every move of the next run "goal rejected" (lab)
+        try:
+            robot.emergency_stop()
+            time.sleep(0.3)
+            robot.release_estop()
+            time.sleep(0.2)
+            robot.log.error('Ctrl-C: arm stopped')
+        except Exception as e:  # noqa: BLE001
+            print('Ctrl-C: could not stop the arm (%s) - press SPACE in teleop / use the estop node' % e)
     finally:
         stop.set()
         robot.shutdown()
