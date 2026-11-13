@@ -40,3 +40,18 @@ def test_triangle_grasp_and_place_offsets():
     # other shapes untouched
     sq = PegInfo('blue', 'square', 0.15, 0.0, 0.1, 0.1, 0.3, 0.04)
     assert triangle_grasp_offsets(sq, SocketInfo('square', 0.2, 0.0, 0.0, 0.0)) == ((0.0, 0.0), (0.0, 0.0))
+
+
+def test_open_jaw_clearance_square_corner():
+    from peg_sorting.planning.pick_place_planner import open_jaw_clearance
+    sq = PegInfo('blue', 'square', 0.15, 0.0, 0.1, 0.1, 0.0, 0.04)     # corners towards the jaws
+    gap, turn = open_jaw_clearance(sq, 0.03)
+    assert gap < 0.002 and abs(abs(math.degrees(turn)) - 45) < 1e-6
+    sq.yaw = math.radians(45)                                           # flat side towards the robot
+    gap, turn = open_jaw_clearance(sq, 0.03)
+    assert abs(gap - 0.01) < 1e-6 and abs(turn) < 1e-9
+    sq.yaw = math.radians(30)
+    _, turn = open_jaw_clearance(sq, 0.03)
+    assert abs(math.degrees(turn) - 15) < 1e-6                          # anticlockwise by 15 deg
+    tri = PegInfo('yellow', 'triangle', 0.15, 0.0, 0.1, 0.1, math.radians(90), 0.04)
+    assert open_jaw_clearance(tri, 0.03)[0] > 0.012                     # aimed between the jaws

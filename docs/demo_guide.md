@@ -26,6 +26,9 @@
     because the open jaws come down there. Keep side-by-side pegs at least 8 cm apart centre to
     centre, or stagger them at least 4 cm front/back. At 5.8 cm the jaw pushed the yellow peg over
     in the lab.
+  - **Peg rotation.** The open gripper is only 6 cm wide. A 4 cm square with a corner pointing
+    at a jaw is 5.7 cm across, so the jaw lands on the corner. Turn the square so a flat side faces
+    the robot. Turn the hexagon so a corner points at the robot. The report gives the angle.
   - **Square yaw.** The square must show a yaw error of 4 degrees or less. Nudge the board
     (turn and slide it) while watching the numbers next to the sockets in the vision window, or
     run `ros2 run peg_sorting suggest_board_pose`.

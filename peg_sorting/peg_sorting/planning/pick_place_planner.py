@@ -148,6 +148,29 @@ def triangle_grasp_offsets(peg: PegInfo, socket: SocketInfo, side=0.04, grasp_mo
     return pick, (-math.sin(bp) * o, math.cos(bp) * o)
 
 
+# circumradius of each peg (4 cm wide pegs): the corners stick out this far from the centre
+PEG_CIRCUMRADIUS = {'triangle': 0.04 / math.sqrt(3.0), 'square': 0.02 * math.sqrt(2.0),
+                    'hexagon': 0.02 / math.cos(math.pi / 6.0), 'circle': 0.02}
+
+
+def open_jaw_clearance(peg: PegInfo, jaw_half_open=0.03):
+    """(gap_m, turn_rad): the smallest gap between an open jaw and the peg when the jaws come
+    down (tool aimed as the planner aims it), and how far to turn the peg (CCW seen from above)
+    to get the most room.  A 4 cm square with a corner towards a jaw is 5.66 cm across: only
+    1.7 mm per side in a 6 cm gripper, so the jaw lands on the corner (lab video, blue)."""
+    R = PEG_CIRCUMRADIUS.get(peg.shape, 0.02)
+    n = SYMMETRY.get(peg.shape)
+    if not n:
+        return jaw_half_open - R, 0.0
+    b = math.atan2(peg.y, peg.x)
+    rel = peg.yaw - b
+    proj = [R * math.cos(rel + 2.0 * math.pi * k / n - math.pi / 2.0) for k in range(n)]
+    half = 0.5 * (max(proj) - min(proj)) if peg.shape == 'triangle' else max(abs(v) for v in proj)
+    period = 2.0 * math.pi / n
+    best = min([math.radians(v) for v in SQUEEZE_STABLE_DEG[peg.shape]], key=lambda v: abs(_ang_dist(v, rel, period)))
+    return jaw_half_open - half, _ang_dist(best, rel, period)
+
+
 def predicted_misalignment(peg: PegInfo, socket: SocketInfo, grasp_model='squeeze'):
     """Signed yaw error (rad) between the peg and the socket at insertion."""
     n = SYMMETRY.get(socket.shape)

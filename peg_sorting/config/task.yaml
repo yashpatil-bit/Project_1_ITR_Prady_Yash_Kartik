@@ -6,6 +6,7 @@ grasp:
   settle_time: 0.15          # wait before closing (PDF: "settle delay before close")
   triangle_centering: true   # triangle: aim between the jaws, not at its centre (5.8 mm, see planner)
   triangle_side: 0.04
+  min_jaw_gap: 0.008         # scene report warns if a peg corner comes closer than this to an open jaw
 
 place:
   insertion_start_above_board: 0.012  # peg bottom this far above the board before slow insertion

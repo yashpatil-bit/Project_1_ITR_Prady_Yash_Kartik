@@ -18,7 +18,7 @@ from control_msgs.action import FollowJointTrajectory
 
 from ..control.robot_interface import EmergencyStop, RobotInterface
 from ..planning.pick_place_planner import (PegInfo, PickPlacePlanner, PlanningError, SocketInfo, jaw_blockers,
-                                           peg_rotation_hint, predicted_misalignment)
+                                           open_jaw_clearance, peg_rotation_hint, predicted_misalignment)
 from ..utils.config import load_yaml
 from ..utils.keyboard import KeyReader
 from ..utils.run_logger import RunLogger
@@ -289,6 +289,18 @@ class TaskManager:
                 flag = 'WARNING: 4-DOF arm cannot fix this - move/rotate the board (suggest_board_pose)'
             print('  %-7s -> %-8s predicted yaw error %+5.1f deg (max %.0f)  %s'
                   % (p.color, s.shape, mis, tol, flag))
+        half_open = 0.5 * float(self.gr.get('open_width_m', 0.06))
+        min_gap = float(self.task['grasp'].get('min_jaw_gap', 0.008))
+        for p in pegs:
+            gap, turn = open_jaw_clearance(p, half_open)
+            if gap < min_gap:
+                d = math.degrees(turn)
+                face = {'square': 'a flat side faces the robot',
+                        'hexagon': 'a corner points at the robot (flat sides left and right)'}.get(p.shape, 'it fits')
+                print('  !! %s %s: a corner points at a jaw - only %.0f mm between the open jaw and the peg, '
+                      'the jaw will land on it.\n  !!    Turn the %s peg %.0f deg %s (seen from above) so %s.'
+                      % (p.color, p.shape, max(gap, 0.0) * 1e3, p.color, abs(d),
+                         'anticlockwise' if d > 0 else 'clockwise', face))
         crowded = []
         for p in pegs:
             for o, gap in jaw_blockers(p, [q for q in pegs if q.color != p.color]):
@@ -296,7 +308,8 @@ class TaskManager:
                                'The jaw will push %s over.' % (p.color, o.color, max(gap, 0.0) * 1e3, p.color))
         if crowded:
             print('\n'.join(crowded))
-            print('  !! FIX: seen from the robot, keep >= 3 cm free on BOTH sides of every peg (centres >= 8 cm apart\n'
+            print('  !! FIX: seen from the robot, keep >= 3 cm free on BOTH sides of every peg '
+                  '(centres >= 8 cm apart\n'
                   '  !!      side by side), or put the neighbour >= 4 cm in front of / behind it.  Then restart.')
         print('=======================================\n')
 
