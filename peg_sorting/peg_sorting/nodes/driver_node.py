@@ -29,6 +29,10 @@ from ..control.dynamixel_bus import DynamixelBus, MockBus, rad_to_tick, tick_to_
 from ..utils.config import load_yaml
 
 
+BUS_HINT = ('the motors are not answering: check the 12 V supply (power hub LED), the motor cables and '
+            'the U2D2 USB cable, then run `python3 scripts/dxl_status.py` (driver stopped)')
+
+
 class DriverNode(Node):
     def __init__(self):
         super().__init__('manipulator_driver')
@@ -115,7 +119,7 @@ class DriverNode(Node):
             if time.time() - self.state_time > 0.5 / float(self.cfg['dynamixel'].get('state_rate_hz', 50)):
                 self._read_state()
         except Exception as e:  # noqa: BLE001
-            self.get_logger().error('state read failed: %s' % e, throttle_duration_sec=2.0)
+            self.get_logger().error('state read failed: %s - %s' % (e, BUS_HINT), throttle_duration_sec=5.0)
             return
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -251,7 +255,7 @@ class DriverNode(Node):
                 self._write_joints(q_des)
                 q_meas = self._read_state()
             except Exception as e:  # noqa: BLE001
-                self.get_logger().error('bus error: %s' % e)
+                self.get_logger().error('bus error: %s - %s' % (e, BUS_HINT))
                 res.error_code = FollowJointTrajectory.Result.INVALID_GOAL
                 res.error_string = 'bus error: %s' % e
                 gh.abort()
@@ -310,7 +314,12 @@ class DriverNode(Node):
         while True:
             if self.estop or gh.is_cancel_requested:
                 break
-            self._read_state()
+            try:
+                self._read_state()
+            except Exception as e:  # noqa: BLE001 - motors not answering
+                self.get_logger().error('gripper: %s - %s' % (e, BUS_HINT))
+                gh.abort()
+                return res
             tick = self.gripper_tick
             if abs(tick - goal_tick) <= 15:
                 res.reached_goal = True
