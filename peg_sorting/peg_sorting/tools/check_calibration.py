@@ -10,6 +10,7 @@ ENTER without jogging = "it was fine".  ESC = quit without saving.
 
     ros2 run peg_sorting check_calibration --per-color             (all pegs)
     ros2 run peg_sorting check_calibration --per-color --color blue
+    ros2 run peg_sorting check_calibration --reset-colors          (delete them)
 
 --per-color: every peg's correction is saved for THAT colour only (camera_calib.yaml ->
 color_offset_m).  Use it when one peg is off and the others are fine: the camera sees
@@ -58,7 +59,12 @@ def main(args=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--per-color', action='store_true', help='save a separate correction for each colour')
     ap.add_argument('--color', default=None, help='only this peg colour (e.g. blue)')
+    ap.add_argument('--reset-colors', action='store_true', help='delete all per-colour offsets and exit')
     opt, _ = ap.parse_known_args(sys.argv[1:])
+    if opt.reset_colors:
+        print('per-colour offsets deleted: %s - restart the vision node.'
+              % update_yaml('camera_calib.yaml', {'color_offset_m': None}))
+        return
     rclpy.init(args=args)
     robot = RobotInterface('check_calibration')
     robot.wait_ready()
