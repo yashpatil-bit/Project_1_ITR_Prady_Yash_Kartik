@@ -81,6 +81,7 @@ def main(args=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--points', type=int, default=8)
     ap.add_argument('--color', default='green')
+    ap.add_argument('--force', action='store_true', help='run even if the board / other pegs are seen')
     a, ros_args = ap.parse_known_args()
     rclpy.init(args=ros_args)
     robot = RobotInterface('calibrate_workspace')
@@ -103,11 +104,19 @@ def main(args=None):
             robot.gripper(1.0)
             robot.move_joints(obs, 0.6)
             res = robot.get_scene(5, True)
+            problems = []
             if res is not None and res.sockets:
-                print('WARNING: the socket board is still on the plate - remove it (pegs would be placed on it).')
+                problems.append('the socket BOARD is on the plate (the peg would be placed on it)')
             others = [p.color for p in (res.pegs if res else []) if p.color != a.color]
             if others:
-                print('WARNING: other pegs on the plate (%s) - remove them.' % ', '.join(others))
+                problems.append('other pegs are on the plate (%s) - the arm would hit them' % ', '.join(others))
+            if problems and not a.force:
+                print('\nSTOP - clear the plate first:')
+                for pr in problems:
+                    print('  - ' + pr)
+                print('Only the %s peg may be on the plate (put it to the side - you hand it to the robot).\n'
+                      'Then run this again.  (--force skips this check)' % a.color)
+                return
             print('Press ENTER to continue (ESC = quit).')
             while True:
                 k = kr.get(0.2)
