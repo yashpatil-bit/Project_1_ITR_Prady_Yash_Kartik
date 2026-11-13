@@ -39,4 +39,4 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 sleep 4
-ros2 run peg_sorting task_manager --ros-args -p confirm:=$CONFIRM -p speed_scale:=$SPEED
+ros2 run peg_sorting task_manager --ros-args -p confirm:=$CONFIRM -p speed_scale:=$SPEED -p mock:=$MOCK

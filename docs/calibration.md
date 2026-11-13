@@ -89,6 +89,20 @@ Restart the vision node afterwards, then put the board back.
 `ros2 run peg_sorting check_calibration`: the arm hovers 1 cm above each detected peg; jog to the true centre if needed
 and press ENTER. The mean offset goes to `xyz_correction_m`.
 
+### 7b. Per-colour offset (one peg is off, the others are fine)
+
+`ros2 run peg_sorting check_calibration --per-color [--color blue]` works like step 7, but each peg's correction
+is saved for that colour only (`camera_calib.yaml → color_offset_m`, pegs only, not sockets). The camera sees each
+colour and shape slightly differently, and the workspace calibration (6C) uses only the green cylinder. Restart
+the vision node afterwards. `calibrate_aruco` resets these offsets.
+
+### 7c. Place offsets per socket (a peg goes in a few mm off)
+
+`config/task.yaml → place.socket_offset_m` shifts the place point per socket, in the robot frame, in metres
+(e.g. `square: [0.002, -0.007]` = 2 mm further +x and 7 mm further -y). Tune it in 1-2 mm steps from what you
+see. Only the task manager needs a restart. Mock runs ignore these offsets. Values that worked in the lab
+(successful run 2026-11-14): square [+2, -7] mm, triangle [+2, -7] mm, hexagon [+3, -4] mm, circle 0.
+
 ## 8. Colours
 
 `ros2 run peg_sorting hsv_tuner`: the window shows only the pixels inside the current range. Click a peg to

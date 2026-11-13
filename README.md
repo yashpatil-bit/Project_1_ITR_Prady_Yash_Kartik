@@ -255,6 +255,10 @@ fit residual is > 6 mm). **Restart the vision node**, put the board back.
 ros2 run peg_sorting check_calibration
 ```
 
+**E. Fine tuning (if needed).** One peg off while the others are fine:
+`ros2 run peg_sorting check_calibration --per-color --color <colour>`. A peg that lands a few mm beside its hole:
+shift its place point in `config/task.yaml → place.socket_offset_m`. See docs/calibration.md, sections 7b and 7c.
+
 ### 6.3 Colour thresholds (parameter file `config/colors.yaml`)
 
 ```bash

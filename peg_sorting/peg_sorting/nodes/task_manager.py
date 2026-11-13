@@ -40,6 +40,9 @@ class TaskManager:
         self.r = robot
         self.p = params
         self.task = load_yaml('task.yaml')
+        if params.get('mock'):
+            # the hand-tuned place shifts are for the real arm; the simulator is exact
+            self.task['place']['socket_offset_m'] = {}
         self.robot_cfg = robot.robot_cfg
         self.vision_cfg = load_yaml('vision.yaml')
         self.planner = PickPlacePlanner(robot.kin, self.task, robot.limits,
@@ -339,7 +342,7 @@ def main(args=None):
     robot = RobotInterface('task_manager')
     n = robot.node
     params = {}
-    for name, default in (('confirm', True), ('speed_scale', 0.0)):
+    for name, default in (('confirm', True), ('speed_scale', 0.0), ('mock', False)):
         n.declare_parameter(name, default)
         params[name] = n.get_parameter(name).value
     tm = TaskManager(robot, params)
