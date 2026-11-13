@@ -265,11 +265,6 @@ class TaskManager:
                 print('  !! no socket detected for the %s %s' % (p.color, p.shape))
                 continue
             mis = math.degrees(predicted_misalignment(p, s, self.planner.grasp_model))
-            try:
-                pl = self.planner.plan(p, s, self.r.joints(), [], self.speed)
-                reach = 'gripper at %.0f deg' % math.degrees(pl.pitch)
-            except PlanningError:
-                reach = 'OUT OF REACH with a steep gripper -> move the board / this peg closer to the robot'
             hint = peg_rotation_hint(p, s, self.planner.grasp_model)
             if abs(mis) <= tol:
                 flag = 'OK'
@@ -277,13 +272,7 @@ class TaskManager:
                 flag = 'WARNING: turn this peg by %+.0f deg (CCW seen from above) before starting' % math.degrees(hint)
             else:
                 flag = 'WARNING: 4-DOF arm cannot fix this - move/rotate the board (suggest_board_pose)'
-            print('  %-7s -> %-8s predicted yaw error %+5.1f deg  %s | %s' % (p.color, s.shape, mis, flag, reach))
-        for i, a in enumerate(pegs):
-            for b in pegs[i + 1:]:
-                d = math.hypot(a.x - b.x, a.y - b.y)
-                if d < 0.08:
-                    print('  !! %s and %s pegs are only %.0f mm apart - the open gripper (6 cm) will hit the other one. '
-                          'Keep >= 8 cm between peg centres.' % (a.color, b.color, d * 1e3))
+            print('  %-7s -> %-8s predicted yaw error %+5.1f deg  %s' % (p.color, s.shape, mis, flag))
         print('=======================================\n')
 
 
