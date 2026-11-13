@@ -22,3 +22,21 @@ def test_spread_or_staggered_is_fine():
     assert not jaw_blockers(a, [peg('b', 0.20, 0.0)])             # 6 cm behind (same bearing)
     b = math.atan2(0.0, 0.14)
     assert b == 0.0
+
+
+def test_triangle_grasp_and_place_offsets():
+    from peg_sorting.planning.pick_place_planner import SocketInfo, triangle_grasp_offsets
+    R = 0.04 / math.sqrt(3)
+    # peg straight ahead, one vertex pointing along +y (towards a jaw), the opposite face towards the other jaw
+    tri = PegInfo('yellow', 'triangle', 0.15, 0.0, 0.1, 0.1, math.radians(90), 0.04)
+    sock = SocketInfo('triangle', 0.20, 0.0, 0.005, math.radians(90))
+    (px, py), (sx, sy) = triangle_grasp_offsets(tri, sock)
+    assert abs(px) < 1e-9 and abs(py - R / 4) < 1e-6      # aim midway between face and vertex
+    assert abs(sx) < 1e-9 and abs(sy - R / 4) < 1e-6      # the peg centre then lands on the socket centre
+    # vertex angle where the jaws see a symmetric outline -> no pick offset
+    tri.yaw = math.radians(60)
+    (px, py), _ = triangle_grasp_offsets(tri, sock)
+    assert math.hypot(px, py) < 1e-9
+    # other shapes untouched
+    sq = PegInfo('blue', 'square', 0.15, 0.0, 0.1, 0.1, 0.3, 0.04)
+    assert triangle_grasp_offsets(sq, SocketInfo('square', 0.2, 0.0, 0.0, 0.0)) == ((0.0, 0.0), (0.0, 0.0))

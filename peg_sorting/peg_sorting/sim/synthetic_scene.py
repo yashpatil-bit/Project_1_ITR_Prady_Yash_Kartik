@@ -126,7 +126,14 @@ class SimWorld:
                 self._drop(p)
         for p in self.pegs:
             if p.held:
-                p.x, p.y = float(tool_xyz[0]), float(tool_xyz[1])
+                # the jaws centre the peg's outline (not its centroid) on the tool point: for a
+                # triangle the centre sits R/4 from the jaw middle, away from the vertex
+                o = 0.0
+                if p.shape == 'triangle':
+                    from ..planning.pick_place_planner import _triangle_mid_offset
+                    o = _triangle_mid_offset(p.rel_yaw, p.size / 2 * math.sqrt(3.0))
+                p.x = float(tool_xyz[0]) + math.sin(joint1) * o
+                p.y = float(tool_xyz[1]) - math.cos(joint1) * o
                 p.z_bottom = tool_xyz[2] - p.grip_offset - p.height
                 p.yaw = joint1 + p.rel_yaw
 

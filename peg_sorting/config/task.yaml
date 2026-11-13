@@ -4,6 +4,8 @@ grasp:
   approach_clearance: 0.05   # pre-grasp: tool point this far above the peg top
   approach_speed: 0.12       # m/s for the final vertical approach
   settle_time: 0.15          # wait before closing (PDF: "settle delay before close")
+  triangle_centering: true   # triangle: aim between the jaws, not at its centre (5.8 mm, see planner)
+  triangle_side: 0.04
 
 place:
   insertion_start_above_board: 0.012  # peg bottom this far above the board before slow insertion

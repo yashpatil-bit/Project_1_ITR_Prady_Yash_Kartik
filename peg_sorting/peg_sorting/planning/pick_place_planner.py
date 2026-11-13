@@ -117,6 +117,37 @@ def predicted_peg_yaw_at(shape, peg_yaw, pick_bearing, place_bearing, grasp_mode
     return (place_bearing + rel) % period
 
 
+def _triangle_mid_offset(rel, side):
+    """Triangle with vertex angle `rel` (rad, relative to the robot->peg bearing): where the
+    middle between the two jaws lies, measured from the triangle's centre along the jaw-closing
+    axis (bearing + 90 deg).  Vertex towards a jaw: R/4 = 5.8 mm (4 cm side) towards that vertex."""
+    R = side / math.sqrt(3.0)
+    proj = [R * math.cos(rel + 2.0 * math.pi * k / 3.0 - math.pi / 2.0) for k in range(3)]
+    return 0.5 * (max(proj) + min(proj))
+
+
+def triangle_grasp_offsets(peg: PegInfo, socket: SocketInfo, side=0.04, grasp_model='squeeze'):
+    """((dx, dy) to add to the peg centre for the grasp, (dx, dy) to add to the socket centre for
+    the place).  The jaws close symmetrically about the tool point, but a triangle's centre is
+    not midway between a face and the opposite vertex: aiming the tool at the centre leaves only
+    ~7 mm between the open jaw and the vertex (lab video: a jaw came down on the yellow peg's
+    edge and it hung tilted), and after the squeeze the peg's centre is 5.8 mm off the tool, so
+    it was put down 5.8 mm beside its hole.  Zero for every other shape."""
+    if peg.shape != 'triangle' or socket.shape != 'triangle':
+        return (0.0, 0.0), (0.0, 0.0)
+    b = math.atan2(peg.y, peg.x)
+    rel = peg.yaw - b
+    o = _triangle_mid_offset(rel, side)
+    pick = (-math.sin(b) * o, math.cos(b) * o)
+    if grasp_model == 'squeeze':
+        period = 2.0 * math.pi / 3.0
+        rel = min([math.radians(v) for v in SQUEEZE_STABLE_DEG['triangle']],
+                  key=lambda v: abs(_ang_dist(rel, v, period)))
+    o = _triangle_mid_offset(rel, side)
+    bp = math.atan2(socket.y, socket.x)
+    return pick, (-math.sin(bp) * o, math.cos(bp) * o)
+
+
 def predicted_misalignment(peg: PegInfo, socket: SocketInfo, grasp_model='squeeze'):
     """Signed yaw error (rad) between the peg and the socket at insertion."""
     n = SYMMETRY.get(socket.shape)
@@ -211,10 +242,12 @@ class PickPlacePlanner:
              speed_scale=1.0, place_offset=(0.0, 0.0)) -> PickPlacePlan:
         pc = self.cfg['pitch']
         h = self.heights(peg, socket)
-        sx = socket.x + place_offset[0]
-        sy = socket.y + place_offset[1]
+        (pdx, pdy), (sdx, sdy) = self.grasp_offsets(peg, socket)
+        gx, gy = peg.x + pdx, peg.y + pdy
+        sx = socket.x + sdx + place_offset[0]
+        sy = socket.y + sdy + place_offset[1]
         key_points = [
-            (peg.x, peg.y, h['pre_grasp']), (peg.x, peg.y, h['grasp']), (peg.x, peg.y, h['carry']),
+            (gx, gy, h['pre_grasp']), (gx, gy, h['grasp']), (gx, gy, h['carry']),
             (sx, sy, h['carry']), (sx, sy, h['insert_start']), (sx, sy, h['place']), (sx, sy, h['retreat']),
         ]
         lowest = math.radians(float(pc['min_deg']))
@@ -231,20 +264,27 @@ class PickPlacePlanner:
         p = pitch
         while p >= lowest - 1e-9:
             try:
-                return self._build(peg, socket, q_start, p, obstacles, (sx, sy), h, speed_scale)
+                return self._build(peg, socket, q_start, p, obstacles, (sx, sy), h, speed_scale, (gx, gy))
             except ValueError as e:  # an intermediate sample is unreachable -> shallower pitch
                 last_err = e
                 p -= math.radians(2.5)
         raise PlanningError('no feasible trajectory: %s' % last_err)
 
-    def _build(self, peg, socket, q_start, pitch, obstacles, sxy, h, speed_scale):
+    def grasp_offsets(self, peg, socket):
+        g = self.cfg['grasp']
+        if not g.get('triangle_centering', True):
+            return (0.0, 0.0), (0.0, 0.0)
+        return triangle_grasp_offsets(peg, socket, float(g.get('triangle_side', 0.04)), self.grasp_model)
+
+    def _build(self, peg, socket, q_start, pitch, obstacles, sxy, h, speed_scale, gxy=None):
         lim = self.limits
         g = self.cfg['grasp']
         kin = self.kin
         sx, sy = sxy
+        gx, gy = gxy if gxy is not None else (peg.x, peg.y)
         steps = []
 
-        q_pre = kin.ik(peg.x, peg.y, h['pre_grasp'], pitch)
+        q_pre = kin.ik(gx, gy, h['pre_grasp'], pitch)
         if q_pre is None:
             raise ValueError('pre-grasp unreachable')
         steps.append(PlanStep('gripper', 'open gripper', gripper='open'))
@@ -253,14 +293,14 @@ class PickPlacePlanner:
             # the joint-space swing would dip below the approach height (could hit pegs):
             # go to a point higher above the peg first, then straight down
             z_hi = h['pre_grasp'] + 0.06
-            q_hi = kin.ik(peg.x, peg.y, z_hi, pitch)
+            q_hi = kin.ik(gx, gy, z_hi, pitch)
             if q_hi is None:
                 raise ValueError('safe approach point unreachable')
             t_pre = joint_move(q_start, q_hi, lim, speed_scale) + cartesian_path(
-                kin, [(peg.x, peg.y, z_hi), (peg.x, peg.y, h['pre_grasp'])], pitch, lim, q_seed=q_hi,
+                kin, [(gx, gy, z_hi), (gx, gy, h['pre_grasp'])], pitch, lim, q_seed=q_hi,
                 speed_scale=speed_scale)
         steps.append(PlanStep('traj', 'move to pre-grasp', traj=t_pre))
-        t_desc = cartesian_path(kin, [(peg.x, peg.y, h['pre_grasp']), (peg.x, peg.y, h['grasp'])], pitch, lim,
+        t_desc = cartesian_path(kin, [(gx, gy, h['pre_grasp']), (gx, gy, h['grasp'])], pitch, lim,
                                 vmax=float(g.get('approach_speed', lim.cart_vel)), q_seed=q_pre,
                                 speed_scale=speed_scale)
         steps.append(PlanStep('traj', 'descend to grasp', traj=t_desc))
@@ -269,9 +309,9 @@ class PickPlacePlanner:
 
         # lift + transport + descend to the insertion start as ONE smooth path
         tr = self.cfg['transport']
-        route_xy, info = plan_transport((peg.x, peg.y), (sx, sy), obstacles,
+        route_xy, info = plan_transport((gx, gy), (sx, sy), obstacles,
                                         r_min=float(tr.get('r_min', 0.10)), r_max=float(tr.get('r_max', 0.30)))
-        wps = [(peg.x, peg.y, h['grasp']), (peg.x, peg.y, h['carry'])]
+        wps = [(gx, gy, h['grasp']), (gx, gy, h['carry'])]
         wps += [(x, y, h['carry']) for (x, y) in route_xy[1:]]
         wps += [(sx, sy, h['insert_start'])]
         t_move = cartesian_path(kin, wps, pitch, lim, q_seed=t_desc.q[-1], speed_scale=speed_scale)
@@ -297,7 +337,8 @@ class PickPlacePlanner:
         (dx, dy) and try again.  Returns a list of PlanSteps."""
         h = self.heights(peg, socket)
         x, y, z, _ = self.kin.fk(q_now)
-        sx, sy = socket.x + offset[0], socket.y + offset[1]
+        _, (sdx, sdy) = self.grasp_offsets(peg, socket)
+        sx, sy = socket.x + sdx + offset[0], socket.y + sdy + offset[1]
         t_back = cartesian_path(self.kin, [(x, y, z), (x, y, h['insert_start']), (sx, sy, h['insert_start'])],
                                 pitch, self.limits, vmax=self.limits.cart_vel_slow * 2, q_seed=q_now)
         return [PlanStep('traj', 'back off and shift (%.0f, %.0f) mm' % (offset[0] * 1e3, offset[1] * 1e3),
