@@ -1,0 +1,12 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_003526_autonomy,autonomy,green,circle,1,False,,"planning: peg green at (0.141, 0.034) or socket circle at (0.239, 0.118) is out of reach for a constant-pitch top grasp",0.001,,,3.688,3.688,0.0,,
+20261114_003526_autonomy,autonomy,green,circle,2,False,,"planning: peg green at (0.141, 0.034) or socket circle at (0.239, 0.118) is out of reach for a constant-pitch top grasp",3.689,,,7.138,3.448,0.0,,
+20261114_003526_autonomy,autonomy,green,circle,3,False,,"planning: peg green at (0.141, 0.034) or socket circle at (0.239, 0.118) is out of reach for a constant-pitch top grasp",7.143,,,11.096,3.954,0.0,,
+20261114_003526_autonomy,autonomy,yellow,triangle,1,False,,"planning: peg yellow at (0.150, -0.046) or socket triangle at (0.239, -0.106) is out of reach for a constant-pitch top grasp",11.098,,,15.088,3.99,-4.2,,
+20261114_003526_autonomy,autonomy,yellow,triangle,2,False,,"planning: peg yellow at (0.150, -0.046) or socket triangle at (0.239, -0.106) is out of reach for a constant-pitch top grasp",15.09,,,18.885,3.795,-4.2,,
+20261114_003526_autonomy,autonomy,yellow,triangle,3,False,,"planning: peg yellow at (0.150, -0.046) or socket triangle at (0.239, -0.106) is out of reach for a constant-pitch top grasp",18.886,,,22.88,3.994,-4.2,,
+20261114_003526_autonomy,autonomy,orange,hexagon,1,False,,"planning: peg orange at (0.141, 0.112) or socket hexagon at (0.239, 0.043) is out of reach for a constant-pitch top grasp",22.881,,,26.831,3.95,-8.1,,
+20261114_003526_autonomy,autonomy,orange,hexagon,2,False,,"planning: peg orange at (0.139, 0.115) or socket hexagon at (0.239, 0.043) is out of reach for a constant-pitch top grasp",26.832,,,30.721,3.889,-8.1,,
+20261114_003526_autonomy,autonomy,orange,hexagon,3,False,,"planning: peg orange at (0.138, 0.116) or socket hexagon at (0.239, 0.043) is out of reach for a constant-pitch top grasp",30.722,,,34.695,3.972,-8.1,,
+20261114_003526_autonomy,autonomy,blue,square,1,False,,"planning: peg blue at (0.142, -0.121) or socket square at (0.239, -0.031) is out of reach for a constant-pitch top grasp",34.695,,,38.605,3.91,10.0,,
+20261114_003526_autonomy,autonomy,blue,square,2,False,,"planning: peg blue at (0.142, -0.121) or socket square at (0.239, -0.031) is out of reach for a constant-pitch top grasp",38.608,,,42.772,4.163,10.0,,

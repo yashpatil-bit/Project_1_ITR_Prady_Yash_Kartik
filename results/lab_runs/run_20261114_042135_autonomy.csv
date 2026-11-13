@@ -1,0 +1,6 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_042135_autonomy,autonomy,yellow,triangle,1,True,unverified (peg not visible),,0.001,4.898,11.528,19.306,19.305,2.3,47.5,direct
+20261114_042135_autonomy,autonomy,green,circle,1,True,"dist 13mm, top +2.2mm",,19.308,24.197,30.515,37.619,18.311,0.0,50.0,direct
+20261114_042135_autonomy,autonomy,blue,square,1,False,"dist 25mm, top +2.4mm","verification: dist 25mm, top +2.4mm",37.62,43.131,52.953,60.183,22.563,-11.2,55.0,inner r=0.10
+20261114_042135_autonomy,autonomy,orange,hexagon,1,True,"dist 10mm, top +2.0mm",,60.184,65.851,74.1,81.392,21.207,9.2,55.0,inner r=0.12
+20261114_042135_autonomy,autonomy,blue,square,2,False,,close gripper: grasp failed (gripper closed on nothing),81.393,,,96.296,14.903,-11.2,52.5,direct

@@ -1,0 +1,2 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_040452_autonomy,autonomy,orange,hexagon,1,False,,close gripper: grasp failed (gripper closed on nothing),0.001,,,11.297,11.296,9.1,57.5,direct

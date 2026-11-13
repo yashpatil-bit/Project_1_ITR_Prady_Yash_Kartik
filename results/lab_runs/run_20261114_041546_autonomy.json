@@ -1,0 +1,14 @@
+{
+  "run_id": "20261114_041546_autonomy",
+  "mode": "autonomy",
+  "total_time_s": 81.17,
+  "pegs_expected": 4,
+  "pegs_placed": 2,
+  "placed_colors": [
+    "green",
+    "orange"
+  ],
+  "attempts": 4,
+  "failures": 2,
+  "speed_scale": 0.5
+}

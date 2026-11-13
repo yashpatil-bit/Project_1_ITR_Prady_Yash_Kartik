@@ -1,0 +1,6 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_041830_autonomy,autonomy,yellow,triangle,1,True,"dist 7mm, top +1.6mm",,0.001,4.768,11.295,19.197,19.196,2.1,47.5,direct
+20261114_041830_autonomy,autonomy,green,circle,1,True,"dist 14mm, top +2.0mm",,19.198,23.907,30.36,38.062,18.863,0.0,50.0,direct
+20261114_041830_autonomy,autonomy,blue,square,1,False,"dist 25mm, top +1.9mm","verification: dist 25mm, top +1.9mm",38.063,43.561,50.682,58.077,20.014,-10.9,55.0,direct
+20261114_041830_autonomy,autonomy,orange,hexagon,1,True,"dist 10mm, top +2.3mm",,58.081,64.064,74.154,81.466,23.385,9.5,55.0,inner r=0.10
+20261114_041830_autonomy,autonomy,blue,square,2,False,"dist 16mm, top -1.6mm -> leaning in its socket (top > 15 mm off the centre)","verification: dist 16mm, top -1.6mm -> leaning in its socket (top > 15 mm off the centre)",81.467,88.257,92.692,100.071,18.603,-10.9,55.0,direct

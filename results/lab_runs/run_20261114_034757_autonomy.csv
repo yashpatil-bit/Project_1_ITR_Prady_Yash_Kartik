@@ -1,0 +1,3 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_034757_autonomy,autonomy,green,circle,1,False,"dist 12mm, top +2.7mm -> resting ON the board (not inserted; yaw misaligned?)","verification: dist 12mm, top +2.7mm -> resting ON the board (not inserted; yaw misaligned?)",0.001,4.643,11.229,18.931,18.93,0.0,50.0,direct
+20261114_034757_autonomy,autonomy,yellow,triangle,1,False,,close gripper: grasp failed (gripper closed on nothing),18.932,,,29.28,10.348,-58.0,50.0,direct

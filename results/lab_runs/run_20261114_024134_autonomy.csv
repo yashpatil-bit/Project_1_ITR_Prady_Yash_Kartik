@@ -1,0 +1,2 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_024134_autonomy,autonomy,yellow,triangle,1,False,,close gripper: grasp failed (gripper closed on nothing),0.001,,,11.234,11.233,-0.5,55.0,direct

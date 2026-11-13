@@ -1,0 +1,5 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_011248_autonomy,autonomy,green,circle,1,True,"dist 8mm, top +2.4mm",,0.001,4.655,11.094,18.699,18.698,0.0,45.0,direct
+20261114_011248_autonomy,autonomy,yellow,triangle,1,True,"dist 8mm, top +1.7mm",,18.699,23.681,29.942,37.341,18.641,-4.1,52.5,direct
+20261114_011248_autonomy,autonomy,orange,hexagon,1,True,"dist 6mm, top -0.5mm",,37.342,43.001,50.18,57.718,20.377,-13.5,55.0,direct
+20261114_011248_autonomy,autonomy,blue,square,1,False,"dist 6mm, top +4.2mm -> resting ON the board (not inserted; yaw misaligned?)","verification: dist 6mm, top +4.2mm -> resting ON the board (not inserted; yaw misaligned?)",57.72,63.995,74.702,82.079,24.359,6.1,60.0,inner r=0.10

@@ -1,0 +1,2 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_042103_autonomy,autonomy,yellow,triangle,1,False,"dist 129mm, top -2.8mm","verification: dist 129mm, top -2.8mm",0.001,4.737,11.355,18.873,18.872,2.2,47.5,direct

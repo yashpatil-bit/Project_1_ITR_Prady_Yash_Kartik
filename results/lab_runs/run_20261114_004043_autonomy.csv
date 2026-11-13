@@ -1,0 +1,5 @@
+run_id,mode,peg_color,shape,attempt,success,verified,reason,t_start,t_grasp,t_place,t_end,duration_s,misalignment_deg,pitch_deg,route
+20261114_004043_autonomy,autonomy,yellow,triangle,1,False,,move to pre-grasp: goal rejected,0.001,,,3.831,3.83,-3.1,42.5,direct
+20261114_004043_autonomy,autonomy,yellow,triangle,2,False,,move to pre-grasp: goal rejected,3.833,,,7.894,4.061,-3.1,42.5,direct
+20261114_004043_autonomy,autonomy,yellow,triangle,3,False,,move to pre-grasp: goal rejected,7.895,,,11.89,3.995,-3.1,42.5,direct
+20261114_004043_autonomy,autonomy,green,circle,1,False,,move to pre-grasp: goal rejected,11.891,,,15.702,3.811,0.0,37.5,direct
