@@ -174,10 +174,13 @@ class TaskManager:
             else:
                 failures[peg.color] = failures.get(peg.color, 0) + 1
                 self.r.log.warn('FAILED %s: %s (attempt %d)' % (peg.color, reason, attempt))
-                if 'resting ON the board' in reason and abs(mis) > float(self.task['alignment']['tolerance_deg']):
-                    # same pick bearing + same squeeze -> the same yaw error again: do not waste time
-                    self.r.log.warn('%s: predicted yaw error %.0f deg cannot be fixed by this arm - giving up on it. '
-                                    'Re-place the board (ros2 run peg_sorting suggest_board_pose).' % (peg.color, mis))
+                if 'resting ON the board' in reason:
+                    # A peg sitting on / leaning in its socket must not be grabbed again: the gripper
+                    # comes down on a tilted peg next to the others and knocks it over (lab video).
+                    why = ('predicted yaw error %.0f deg cannot be fixed by this arm - turn the board' % mis
+                           if abs(mis) > float(self.task['alignment']['tolerance_deg']) else
+                           'it landed a few mm off the hole')
+                    self.r.log.warn('%s: resting on its socket (%s) - not retrying it, moving on.' % (peg.color, why))
                     failures[peg.color] = self.max_retries + 1
 
         summary = self.logger.finish(expected, {'speed_scale': self.speed})
