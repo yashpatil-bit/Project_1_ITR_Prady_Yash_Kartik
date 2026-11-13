@@ -18,10 +18,8 @@ from rclpy.signals import SignalHandlerOptions
 from control_msgs.action import FollowJointTrajectory
 
 from ..control.robot_interface import EmergencyStop, RobotInterface
-from ..planning.board_placement import board_model, evaluate
-from ..planning.pick_place_planner import (SYMMETRY, PegInfo, PickPlacePlanner, PlanningError, SocketInfo,
-                                           jaw_blockers, open_jaw_clearance, peg_rotation_hint,
-                                           predicted_misalignment)
+from ..planning.pick_place_planner import (PegInfo, PickPlacePlanner, PlanningError, SocketInfo, jaw_blockers,
+                                           open_jaw_clearance, peg_rotation_hint, predicted_misalignment)
 from ..utils.config import load_yaml
 from ..utils.keyboard import KeyReader
 from ..utils.run_logger import RunLogger
@@ -143,27 +141,15 @@ class TaskManager:
             if not res:
                 self.log('the driver still refuses to move (%s) - restart the driver' % res.message)
                 return
-        while True:
-            pegs = self.observe(with_sockets=True)
-            self.true_height = {p.color: p.height for p in pegs}
-            problems = self.print_setup(pegs)
-            if not pegs or not self.sockets:
-                self.log('nothing to do: %d pegs, %d sockets detected' % (len(pegs), len(self.sockets)))
-                return
-            if not self.p.get('confirm', True):
-                break
-            if problems:
-                # every failed lab run so far had these warnings on screen when ENTER was pressed
-                print('\n>>> %d PROBLEM(S) above (WARNING / !! lines) - those pegs will probably fail.\n'
-                      '>>> Fix them (turn / move the pegs or the board), then press ENTER to look again.\n'
-                      '>>> (type  go  and ENTER to start anyway) <<<' % problems)
-                if sys.stdin.readline().strip().lower() == 'go':
-                    break
-                self.sockets = {}   # the board may have been moved
-                continue
-            print('\n>>> Scene OK.  Press ENTER to start the timed run (SPACE = emergency stop, q = abort) <<<')
+        pegs = self.observe(with_sockets=True)
+        self.true_height = {p.color: p.height for p in pegs}
+        self.print_setup(pegs)
+        if not pegs or not self.sockets:
+            self.log('nothing to do: %d pegs, %d sockets detected' % (len(pegs), len(self.sockets)))
+            return
+        if self.p.get('confirm', True):
+            print('\n>>> Press ENTER to start the timed run (SPACE = emergency stop, q = abort) <<<')
             sys.stdin.readline()
-            break
         expected = len({p.color for p in pegs if p.shape in self.sockets})
         self.logger.start_run()
         t_run = time.time()
@@ -297,43 +283,17 @@ class TaskManager:
             info += ' -> leaning in its socket (top > %.0f mm off the centre)' % (lean_tol * 1e3)
         return ok, info, pegs_now
 
-    def board_turn_hint(self, pegs):
-        """How far to turn the board about its middle so every socket's yaw error is within its limit."""
-        socks = [self.sockets[p.shape] for p in pegs if p.shape in self.sockets]
-        cx = sum(k.x for k in socks) / len(socks)
-        cy = sum(k.y for k in socks) / len(socks)
-        model = board_model(cx, cy, 0.0, socks)
-        best = None
-        for i in range(-60, 61):
-            d = 0.5 * i
-            _, errs, _ = evaluate(model, cx, cy, math.radians(d))
-            score = max(errs[k] / self.yaw_tol(k) for k in errs if k in SYMMETRY) if errs else 0.0
-            key = (score > 1.0, score + 0.01 * abs(d))   # most margin, small turns preferred
-            if best is None or key < best[0]:
-                best = (key, d, errs)
-        (bad, _), d, errs = best
-        txt = ', '.join('%s %.0f' % (k, v) for k, v in errs.items() if k in SYMMETRY)
-        if bad:
-            return '  !! no turn of the board fixes every socket (best: turn %.0f deg %s -> %s deg)' % (
-                abs(d), 'anticlockwise' if d > 0 else 'clockwise', txt)
-        return '  -> BOARD: turn it about its middle by %.1f deg %s (seen from above) -> yaw errors %s deg' % (
-            abs(d), 'anticlockwise' if d > 0 else 'clockwise', txt)
-
     def print_setup(self, pegs):
-        """Print the scene report; returns the number of problems found."""
-        problems = 0
         print('\n================ SCENE ================')
         for p in pegs:
             print('  peg    %-7s %-8s at (%6.3f, %6.3f)  top %.3f  yaw %5.1f deg' % (
                 p.color, p.shape, p.x, p.y, p.z_top, math.degrees(p.yaw)))
         for s in self.sockets.values():
             print('  socket %-8s at (%6.3f, %6.3f)  yaw %5.1f deg' % (s.shape, s.x, s.y, math.degrees(s.yaw)))
-        board_problem = False
         for p in pegs:
             s = self.sockets.get(p.shape)
             if s is None:
                 print('  !! no socket detected for the %s %s' % (p.color, p.shape))
-                problems += 1
                 continue
             mis = math.degrees(predicted_misalignment(p, s, self.planner.grasp_model))
             hint = peg_rotation_hint(p, s, self.planner.grasp_model)
@@ -345,20 +305,14 @@ class TaskManager:
                 flag = 'WARNING: turn this peg %.0f deg %s (seen from above) before starting' % (
                     abs(d), 'anticlockwise' if d > 0 else 'clockwise')
             else:
-                flag = 'WARNING: 4-DOF arm cannot fix this - turn the board (see below)'
-                board_problem = True
-            if abs(mis) > tol:
-                problems += 1
+                flag = 'WARNING: 4-DOF arm cannot fix this - move/rotate the board (suggest_board_pose)'
             print('  %-7s -> %-8s predicted yaw error %+5.1f deg (max %.0f)  %s'
                   % (p.color, s.shape, mis, tol, flag))
-        if board_problem:
-            print(self.board_turn_hint(pegs))
         half_open = 0.5 * float(self.gr.get('open_width_m', 0.06))
         min_gap = float(self.task['grasp'].get('min_jaw_gap', 0.008))
         for p in pegs:
             gap, turn = open_jaw_clearance(p, half_open)
             if gap < min_gap:
-                problems += 1
                 d = math.degrees(turn)
                 face = {'square': 'a flat side faces the robot',
                         'hexagon': 'a corner points at the robot (flat sides left and right)'}.get(p.shape, 'it fits')
@@ -371,14 +325,12 @@ class TaskManager:
             for o, gap in jaw_blockers(p, [q for q in pegs if q.color != p.color]):
                 crowded.append('  !! %s: the open jaw comes down where %s stands (only %.0f mm gap sideways). '
                                'The jaw will push %s over.' % (p.color, o.color, max(gap, 0.0) * 1e3, p.color))
-        problems += len(crowded)
         if crowded:
             print('\n'.join(crowded))
             print('  !! FIX: seen from the robot, keep >= 3 cm free on BOTH sides of every peg '
                   '(centres >= 8 cm apart\n'
-                  '  !!      side by side), or put the neighbour >= 4 cm in front of / behind it.')
+                  '  !!      side by side), or put the neighbour >= 4 cm in front of / behind it.  Then restart.')
         print('=======================================\n')
-        return problems
 
 
 def main(args=None):
