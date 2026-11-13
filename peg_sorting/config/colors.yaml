@@ -10,7 +10,7 @@ pegs:
     display_bgr: [0, 230, 255]
     min_area_px: 300
   blue:
-    hsv_ranges: [[[95, 110, 40], [130, 255, 255]]]
+    hsv_ranges: [[[95, 60, 40], [130, 255, 255]]]   # S down to 60: the lit top face is pale blue (S ~90-105 in the lab)
     expected_shape: square
     display_bgr: [255, 120, 0]
     min_area_px: 300
