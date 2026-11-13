@@ -1,7 +1,7 @@
 # Pick-and-place parameters (metres / seconds / degrees).
 grasp:
-  grasp_depth: 0.03          # tool point this far below the peg top when closing (fingertips ~1.5 cm lower).
-                             # Do not go higher: with the long angled fingers only the tips would touch and the peg swings.
+  grasp_depth: 0.02          # tool point this far below the peg top (fingertips ~1.5 cm lower). Higher keeps the
+                             # gripper body/hub off the peg top - only works with a steep gripper (pitch.min_deg)
   approach_clearance: 0.05   # pre-grasp: tool point this far above the peg top
   approach_speed: 0.12       # m/s for the final vertical approach
   settle_time: 0.15          # wait before closing (PDF: "settle delay before close")
@@ -22,7 +22,8 @@ transport:
 
 pitch:
   preferred_deg: 90          # straight down
-  min_deg: 30
+  min_deg: 55                # never tilt the gripper more: a flatter gripper's body hits the peg top.
+                             # If a socket/peg is out of reach at this angle, move the board/pegs closer.
 
 alignment:
   # Manipulator X has no wrist roll: the gripper yaw is always joint1.  See README "Orientation".

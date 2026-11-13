@@ -11,7 +11,10 @@ from peg_sorting.utils.config import load_yaml
 def make():
     r = load_yaml('robot.yaml')
     k = ManipulatorXKinematics(ArmGeometry.from_config(r))
-    return k, PickPlacePlanner(k, load_yaml('task.yaml'), Limits.from_config(r['limits']))
+    task = load_yaml('task.yaml')
+    task['pitch'] = {'preferred_deg': 90, 'min_deg': 30}   # planner maths over the whole plate
+    task['grasp']['grasp_depth'] = 0.03
+    return k, PickPlacePlanner(k, task, Limits.from_config(r['limits']))
 
 
 def test_plan_keeps_constant_pitch_and_reaches_socket():
