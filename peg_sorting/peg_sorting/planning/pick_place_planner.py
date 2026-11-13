@@ -294,10 +294,14 @@ class PickPlacePlanner:
         raise PlanningError('no feasible trajectory: %s' % last_err)
 
     def grasp_offsets(self, peg, socket):
+        """((dx, dy) added to the peg centre for the grasp, (dx, dy) added to the socket centre for the place)."""
         g = self.cfg['grasp']
-        if not g.get('triangle_centering', True):
-            return (0.0, 0.0), (0.0, 0.0)
-        return triangle_grasp_offsets(peg, socket, float(g.get('triangle_side', 0.04)), self.grasp_model)
+        pick, place = (0.0, 0.0), (0.0, 0.0)
+        if g.get('triangle_centering', True):
+            pick, place = triangle_grasp_offsets(peg, socket, float(g.get('triangle_side', 0.04)), self.grasp_model)
+        # hand-tuned per-socket shift (task.yaml -> place.socket_offset_m), e.g. the square went in a few mm +y
+        off = (self.cfg['place'].get('socket_offset_m') or {}).get(socket.shape) or (0.0, 0.0)
+        return pick, (place[0] + float(off[0]), place[1] + float(off[1]))
 
     def _build(self, peg, socket, q_start, pitch, obstacles, sxy, h, speed_scale, gxy=None):
         lim = self.limits

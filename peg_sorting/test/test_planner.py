@@ -29,7 +29,8 @@ def test_plan_keeps_constant_pitch_and_reaches_socket():
     ins = next(s for s in plan.steps if s.label.startswith('insert'))
     assert ins.guarded
     x, y, z, _ = k.fk(ins.traj.q[-1])
-    assert math.hypot(x - sock.x, y - sock.y) < 1e-6
+    _, (dx, dy) = pl.grasp_offsets(peg, sock)          # hand-tuned socket_offset_m from task.yaml
+    assert math.hypot(x - sock.x - dx, y - sock.y - dy) < 1e-6
     # peg bottom ends just above the table
     h = pl.heights(peg, sock)
     assert abs((z - h['peg_bottom_below_tool']) - float(pl.cfg['place']['bottom_clearance'])) < 1e-6
