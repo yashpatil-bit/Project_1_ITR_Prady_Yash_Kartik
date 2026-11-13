@@ -5,11 +5,11 @@ import numpy as np
 
 from peg_sorting.planning.kinematics import ArmGeometry, ManipulatorXKinematics
 from peg_sorting.planning.trajectory import Limits, cartesian_path, joint_move
-from peg_sorting.utils.config import load_yaml
 
 
 def kin():
-    return ManipulatorXKinematics(ArmGeometry.from_config(load_yaml('robot.yaml')))
+    # the STOCK Manipulator X model: these tests check the maths, not the lab calibration
+    return ManipulatorXKinematics(ArmGeometry())
 
 
 def test_zero_pose_matches_robotis():

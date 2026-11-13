@@ -27,16 +27,29 @@ def _detect_with(gray, dict_name):
     return [(int(i), c.reshape(4, 2)) for i, c in zip(ids.flatten(), corners)]
 
 
+def _image_variants(gray):
+    """The plain image first, then versions that help in dim / low-contrast light:
+    local contrast boost (CLAHE), and the same enlarged 2x (small, blurry markers).
+    Yields (image, scale) - corners found must be divided by scale."""
+    yield gray, 1.0
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(gray)
+    yield clahe, 1.0
+    big = cv2.resize(clahe, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
+    yield cv2.GaussianBlur(big, (3, 3), 0), 2.0
+
+
 def detect_markers(color, dictionary='auto'):
-    """Returns (dict_name, [(id, corners(4,2))]).  dictionary='auto' tries COMMON_DICTS."""
+    """Returns (dict_name, [(id, corners(4,2))]).  dictionary='auto' tries COMMON_DICTS.
+    Retries on contrast-enhanced / enlarged images when the plain one fails (dim light)."""
     gray = cv2.cvtColor(color, cv2.COLOR_BGR2GRAY) if color.ndim == 3 else color
     names = COMMON_DICTS if dictionary in (None, '', 'auto') else [dictionary]
-    for name in names:
-        if not hasattr(cv2.aruco, name):
-            continue
-        found = _detect_with(gray, name)
-        if found:
-            return name, found
+    for img, scale in _image_variants(gray):
+        for name in names:
+            if not hasattr(cv2.aruco, name):
+                continue
+            found = _detect_with(img, name)
+            if found:
+                return name, [(i, c / scale) for i, c in found]
     return None, []
 
 
