@@ -1,6 +1,7 @@
 # Pick-and-place parameters (metres / seconds / degrees).
 grasp:
-  grasp_depth: 0.02          # tool point this far below the peg top when closing (fingertips ~1.5 cm lower)
+  grasp_depth: 0.03          # tool point this far below the peg top when closing (fingertips ~1.5 cm lower).
+                             # Do not go higher: with the long angled fingers only the tips would touch and the peg swings.
   approach_clearance: 0.05   # pre-grasp: tool point this far above the peg top
   approach_speed: 0.12       # m/s for the final vertical approach
   settle_time: 0.15          # wait before closing (PDF: "settle delay before close")

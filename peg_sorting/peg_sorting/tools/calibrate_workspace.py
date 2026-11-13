@@ -82,6 +82,7 @@ def main(args=None):
     ap.add_argument('--points', type=int, default=8)
     ap.add_argument('--color', default='green')
     ap.add_argument('--force', action='store_true', help='run even if the board / other pegs are seen')
+    ap.add_argument('--speed', type=float, default=0.5, help='speed scale (slow = the peg does not swing)')
     a, ros_args = ap.parse_known_args()
     rclpy.init(args=ros_args)
     robot = RobotInterface('calibrate_workspace')
@@ -137,7 +138,8 @@ def main(args=None):
                 print('not enough reachable target spots (%d)' % len(targets))
                 return
             print('target spots (mm): %s' % ', '.join('(%.0f, %.0f)' % (x * 1e3, y * 1e3) for x, y in targets))
-            plan = planner.plan(peg, SocketInfo('circle', targets[0][0], targets[0][1], table_z), robot.joints(), [])
+            plan = planner.plan(peg, SocketInfo('circle', targets[0][0], targets[0][1], table_z), robot.joints(), [],
+                                speed_scale=a.speed)
             h = planner.heights(peg, SocketInfo('circle', targets[0][0], targets[0][1], table_z))
             grasp = np.array([start[0], start[1], h['grasp']])
             above = grasp + np.array([0.0, 0.0, 0.10])
@@ -166,7 +168,7 @@ def main(args=None):
                     peg = PegInfo(a.color, 'circle', cur[0], cur[1], table_z + height, height, 0.0, 0.05)
                     try:
                         steps = planner.plan(peg, SocketInfo('circle', tgt[0], tgt[1], table_z), robot.joints(),
-                                             []).steps
+                                             [], speed_scale=a.speed).steps
                     except PlanningError as e:
                         print('skip (%.0f, %.0f): %s' % (tgt[0] * 1e3, tgt[1] * 1e3, e))
                         continue
@@ -175,7 +177,7 @@ def main(args=None):
                     print('stopped: %s' % why)
                     break
                 cur = tgt
-                robot.move_joints(obs, 0.8)
+                robot.move_joints(obs, a.speed)
                 time.sleep(0.5)
                 sc = robot.get_scene(8, False)
                 seen = [p for p in (sc.pegs if sc else []) if p.color == a.color]

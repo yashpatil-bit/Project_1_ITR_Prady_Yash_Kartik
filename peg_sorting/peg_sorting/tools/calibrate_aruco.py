@@ -177,11 +177,17 @@ def main():
         d = T_to_dict(T)
         p = update_yaml('camera_calib.yaml', {
             'calibrated': True, 'method': 'aruco', 'date': time.strftime('%Y-%m-%d %H:%M'),
-            'T_base_cam': d, 'aruco': {'dictionary': info['dictionary'], 'marker_id': info['marker_id'],
+            'T_base_cam': d,
+            # fine corrections belong to the OLD camera pose - reset them (redo calibrate_workspace)
+            'xyz_correction_m': [0.0, 0.0, 0.0],
+            'planar_correction': {'A': [[1.0, 0.0], [0.0, 1.0]], 'b': [0.0, 0.0],
+                                  'note': 'reset by calibrate_aruco - run calibrate_workspace'},
+            'aruco': {'dictionary': info['dictionary'], 'marker_id': info['marker_id'],
                                        'marker_length_m': acfg['marker_length_m'],
                                        'marker_in_base': acfg['marker_in_base']}},
             header='Camera -> robot base calibration (written by calibrate_aruco). See docs/calibration.md.')
         print('saved to %s' % p)
+        print('The fine corrections from before were reset: now run calibrate_workspace (vision restarted).')
     return 0
 
 
