@@ -83,6 +83,10 @@ def main(args=None):
     ap.add_argument('--color', default='green')
     ap.add_argument('--force', action='store_true', help='run even if the board / other pegs are seen')
     ap.add_argument('--speed', type=float, default=0.5, help='speed scale (slow = the peg does not swing)')
+    ap.add_argument('--min-pitch', type=float, default=65.0,
+                    help='only spots where the gripper can stay at least this steep (deg, 90 = straight down)')
+    ap.add_argument('--grasp-depth', type=float, default=0.02,
+                    help='grip this far below the peg top (m) - higher keeps the gripper body off the peg')
     a, ros_args = ap.parse_known_args()
     rclpy.init(args=ros_args)
     robot = RobotInterface('calibrate_workspace')
@@ -93,7 +97,14 @@ def main(args=None):
     gr = robot.robot_cfg['gripper']
     release = float(task['place'].get('release_fraction', gr.get('release_fraction', 1.0)))
     table_z = float(vcfg.get('table_z', 0.0))
-    planner = PickPlacePlanner(robot.kin, task, robot.limits, table_z=table_z)
+    # calibration-only motion settings: grip high (gripper body clear of the peg top), steep gripper,
+    # low approach (nothing else on the plate) -> the peg goes straight down where the robot thinks
+    import copy
+    cal_task = copy.deepcopy(task)
+    cal_task['grasp']['grasp_depth'] = a.grasp_depth
+    cal_task['grasp']['approach_clearance'] = 0.03
+    cal_task['pitch'] = {'preferred_deg': 90.0, 'min_deg': a.min_pitch}
+    planner = PickPlacePlanner(robot.kin, cal_task, robot.limits, table_z=table_z)
     height = float(vcfg['pegs'].get('nominal_height', 0.10))
     m = (calib.get('aruco') or {}).get('marker_in_base') or {}
     marker_xy = (float(m['x']), float(m['y'])) if 'x' in m else None
@@ -138,12 +149,18 @@ def main(args=None):
                 print('not enough reachable target spots (%d)' % len(targets))
                 return
             print('target spots (mm): %s' % ', '.join('(%.0f, %.0f)' % (x * 1e3, y * 1e3) for x, y in targets))
+            print('gripper kept >= %.0f deg steep, gripping %.0f mm below the peg top, speed %.1f'
+                  % (a.min_pitch, a.grasp_depth * 1e3, a.speed))
             plan = planner.plan(peg, SocketInfo('circle', targets[0][0], targets[0][1], table_z), robot.joints(), [],
                                 speed_scale=a.speed)
             h = planner.heights(peg, SocketInfo('circle', targets[0][0], targets[0][1], table_z))
             grasp = np.array([start[0], start[1], h['grasp']])
-            above = grasp + np.array([0.0, 0.0, 0.10])
-            q_hi = robot.kin.ik(*above, plan.pitch)
+            q_hi, above = None, None
+            for dz in (0.10, 0.08, 0.06, 0.05, 0.04, 0.03):   # highest approach point reachable at this angle
+                above = grasp + np.array([0.0, 0.0, dz])
+                q_hi = robot.kin.ik(*above, plan.pitch)
+                if q_hi is not None:
+                    break
             if q_hi is None:
                 print('hand-over spot not reachable at pitch %.0f deg' % math.degrees(plan.pitch))
                 return
